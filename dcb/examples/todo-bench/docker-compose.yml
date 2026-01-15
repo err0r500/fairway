@@ -1,0 +1,61 @@
+services:
+  # FoundationDB (custom build for Apple Silicon)
+  fdb:
+    image: foundationdb/foundationdb:7.4.5${FDB_CUSTOM_TAG}
+    volumes:
+      - fdb-data:/var/fdb/data
+      - fdb-config:/var/fdb
+    healthcheck:
+      test: ["CMD", "fdbcli", "--exec", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Todo Benchmark App
+  benchmark:
+    build:
+      context: ../..
+      dockerfile: examples/todo-bench/Dockerfile
+    environment:
+      - FDB_CLUSTER_FILE=/var/fdb/fdb.cluster
+    ports:
+      - "8080:8080"
+    depends_on:
+      fdb:
+        condition: service_healthy
+    volumes:
+      - fdb-config:/var/fdb:ro
+    command: ["-concurrency", "1", "-metrics-port", "8080"]
+
+  # Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    depends_on:
+      - benchmark
+
+  # Grafana
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+
+volumes:
+  fdb-data:
+  fdb-config:

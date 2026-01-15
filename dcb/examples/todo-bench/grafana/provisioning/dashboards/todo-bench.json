@@ -1,0 +1,304 @@
+{
+  "title": "DCB Event Store - Todo Benchmark",
+  "uid": "dcb-todo-bench",
+  "timezone": "browser",
+  "schemaVersion": 16,
+  "version": 0,
+  "refresh": "5s",
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "panels": [
+      {
+        "id": 1,
+        "title": "Append Throughput (ops/sec)",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "rate(dcb_append_total[30s])",
+            "legendFormat": "{{status}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "ops", "label": "Operations/sec", "show": true},
+          {"format": "short", "show": true}
+        ],
+        "xaxis": {"show": true},
+        "grid": {},
+        "lines": true,
+        "fill": 1,
+        "linewidth": 2
+      },
+      {
+        "id": 2,
+        "title": "Read Throughput (ops/sec)",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+        "targets": [
+          {
+            "expr": "rate(dcb_read_total[30s])",
+            "legendFormat": "{{status}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "ops", "label": "Operations/sec", "show": true},
+          {"format": "short", "show": true}
+        ],
+        "xaxis": {"show": true},
+        "grid": {},
+        "lines": true,
+        "fill": 1,
+        "linewidth": 2
+      },
+      {
+        "id": 3,
+        "title": "Append Latency (p50, p95, p99)",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(dcb_append_duration_seconds_bucket[30s]))",
+            "legendFormat": "p50",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(dcb_append_duration_seconds_bucket[30s]))",
+            "legendFormat": "p95",
+            "refId": "B"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(dcb_append_duration_seconds_bucket[30s]))",
+            "legendFormat": "p99",
+            "refId": "C"
+          }
+        ],
+        "yaxes": [
+          {"format": "s", "label": "Latency", "show": true},
+          {"format": "short", "show": true}
+        ],
+        "xaxis": {"show": true},
+        "grid": {},
+        "lines": true,
+        "fill": 1,
+        "linewidth": 2
+      },
+      {
+        "id": 4,
+        "title": "Read Latency (p50, p95, p99)",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(dcb_read_duration_seconds_bucket[30s]))",
+            "legendFormat": "p50",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(dcb_read_duration_seconds_bucket[30s]))",
+            "legendFormat": "p95",
+            "refId": "B"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(dcb_read_duration_seconds_bucket[30s]))",
+            "legendFormat": "p99",
+            "refId": "C"
+          }
+        ],
+        "yaxes": [
+          {"format": "s", "label": "Latency", "show": true},
+          {"format": "short", "show": true}
+        ],
+        "xaxis": {"show": true},
+        "grid": {},
+        "lines": true,
+        "fill": 1,
+        "linewidth": 2
+      },
+      {
+        "id": 5,
+        "title": "Total Events Appended",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+        "targets": [
+          {
+            "expr": "dcb_events_appended_total",
+            "legendFormat": "Events",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "short", "label": "Count", "show": true},
+          {"format": "short", "show": true}
+        ],
+        "xaxis": {"show": true},
+        "grid": {},
+        "lines": true,
+        "fill": 1,
+        "linewidth": 2,
+        "description": "Cumulative count of events written to the store"
+      },
+      {
+        "id": 6,
+        "title": "Error Rate",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+        "targets": [
+          {
+            "expr": "rate(dcb_append_total{status=\"error\"}[1m])",
+            "legendFormat": "Append Errors",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(dcb_read_total{status=\"error\"}[1m])",
+            "legendFormat": "Read Errors",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          {"format": "ops", "label": "Errors/sec", "show": true},
+          {"format": "short", "show": true}
+        ],
+        "xaxis": {"show": true},
+        "grid": {},
+        "lines": true,
+        "fill": 1,
+        "linewidth": 2
+      },
+      {
+        "id": 7,
+        "title": "Append Latency Over Time (to detect degradation)",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 24},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(dcb_append_duration_seconds_bucket[1m]))",
+            "legendFormat": "p50",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(dcb_append_duration_seconds_bucket[1m]))",
+            "legendFormat": "p95",
+            "refId": "B"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(dcb_append_duration_seconds_bucket[1m]))",
+            "legendFormat": "p99",
+            "refId": "C"
+          }
+        ],
+        "yaxes": [
+          {"format": "s", "label": "Latency", "logBase": 1, "show": true},
+          {"format": "short", "show": true}
+        ],
+        "xaxis": {"show": true},
+        "grid": {},
+        "lines": true,
+        "fill": 0,
+        "linewidth": 2,
+        "description": "Long-term view to detect performance degradation as data grows"
+      },
+      {
+        "id": 8,
+        "title": "Lock Wait Latency (p50, p95, p99)",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 32},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(dcb_lock_wait_duration_seconds_bucket[30s]))",
+            "legendFormat": "p50",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(dcb_lock_wait_duration_seconds_bucket[30s]))",
+            "legendFormat": "p95",
+            "refId": "B"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(dcb_lock_wait_duration_seconds_bucket[30s]))",
+            "legendFormat": "p99",
+            "refId": "C"
+          }
+        ],
+        "yaxes": [
+          {"format": "s", "label": "Wait Time", "show": true},
+          {"format": "short", "show": true}
+        ],
+        "xaxis": {"show": true},
+        "grid": {},
+        "lines": true,
+        "fill": 1,
+        "linewidth": 2,
+        "description": "Time spent waiting to acquire distributed write lock"
+      },
+      {
+        "id": 9,
+        "title": "Lock Contentions (p50, p95, p99)",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 32},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(dcb_lock_contentions_bucket[30s]))",
+            "legendFormat": "p50",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(dcb_lock_contentions_bucket[30s]))",
+            "legendFormat": "p95",
+            "refId": "B"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(dcb_lock_contentions_bucket[30s]))",
+            "legendFormat": "p99",
+            "refId": "C"
+          }
+        ],
+        "yaxes": [
+          {"format": "short", "label": "Poll Attempts", "show": true},
+          {"format": "short", "show": true}
+        ],
+        "xaxis": {"show": true},
+        "grid": {},
+        "lines": true,
+        "fill": 1,
+        "linewidth": 2,
+        "description": "Number of poll attempts (5ms each) before acquiring lock"
+      },
+      {
+        "id": 10,
+        "title": "Read Latency Over Time (to detect degradation)",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 40},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(dcb_read_duration_seconds_bucket[1m]))",
+            "legendFormat": "p50",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(dcb_read_duration_seconds_bucket[1m]))",
+            "legendFormat": "p95",
+            "refId": "B"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(dcb_read_duration_seconds_bucket[1m]))",
+            "legendFormat": "p99",
+            "refId": "C"
+          }
+        ],
+        "yaxes": [
+          {"format": "s", "label": "Latency", "logBase": 1, "show": true},
+          {"format": "short", "show": true}
+        ],
+        "xaxis": {"show": true},
+        "grid": {},
+        "lines": true,
+        "fill": 0,
+        "linewidth": 2,
+        "description": "Long-term view to detect performance degradation as data grows"
+      }
+    ]
+}
