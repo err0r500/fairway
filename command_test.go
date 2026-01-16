@@ -32,7 +32,7 @@ type AddItem struct {
 	Text   string
 }
 
-func (cmd AddItem) Run(ctx context.Context, ra *fairway.ReadAppender) error {
+func (cmd AddItem) Run(ctx context.Context, ra fairway.EventReadAppender) error {
 	var count int
 
 	handler := fairway.Query(
@@ -96,7 +96,7 @@ type ArchiveList struct {
 	ListId string
 }
 
-func (cmd ArchiveList) Run(ctx context.Context, ra *fairway.ReadAppender, deps commandDeps) error {
+func (cmd ArchiveList) Run(ctx context.Context, ra fairway.EventReadAppender, deps commandDeps) error {
 	var count int
 
 	handler := fairway.Query(
