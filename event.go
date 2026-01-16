@@ -14,14 +14,14 @@ type TaggedEvent struct {
 	Tags  []string // optional tags for categorization
 }
 
-// NewEvent creates a TaggedEvent with tags
-func NewEvent(event any, tags ...string) TaggedEvent {
+// Event creates a TaggedEvent with tags
+func Event(event any, tags ...string) TaggedEvent {
 	return TaggedEvent{Event: event, Tags: tags}
 }
 
 // Typer is anything that can provide an event type string
 type Typer interface {
-	EventType() string
+	TypeString() string
 }
 
 // resolveEventTypeName determines the event type name for an event instance.
@@ -30,7 +30,7 @@ type Typer interface {
 //  2. Otherwise, fall back to the struct's type name via reflection
 func resolveEventTypeName(event any) string {
 	if typer, ok := event.(Typer); ok {
-		return typer.EventType()
+		return typer.TypeString()
 	}
 
 	return reflect.TypeOf(event).Name()
