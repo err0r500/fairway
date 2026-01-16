@@ -36,7 +36,7 @@ func (cmd AddItem) Run(ctx context.Context, ra fairway.EventReadAppender) error 
 	var count int
 
 	handler := fairway.Query(
-		fairway.QueryItem{}.Types(TodoListCreated{}, TodoListDeleted{}).Tags("list:" + cmd.ListId),
+		fairway.Item().Types(TodoListCreated{}, TodoListDeleted{}).Tags("list:" + cmd.ListId),
 	).Handle(func(te fairway.TaggedEvent, err error) bool {
 		if err != nil {
 			return false
@@ -100,7 +100,8 @@ func (cmd ArchiveList) Run(ctx context.Context, ra fairway.EventReadAppender, de
 	var count int
 
 	handler := fairway.Query(
-		fairway.QueryItem{}.Types(TodoListCreated{}, TodoItemAdded{}).Tags("list:" + cmd.ListId),
+		fairway.Item().Types(TodoListCreated{}).Tags("list:" + cmd.ListId),
+		fairway.Item().Types(TodoItemAdded{}).Tags("list:" + cmd.ListId),
 	).Handle(func(te fairway.TaggedEvent, err error) bool {
 		if err != nil {
 			return false

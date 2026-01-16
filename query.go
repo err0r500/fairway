@@ -34,13 +34,13 @@ func (q QueryItem) toDcb() dcb.QueryItem {
 	}
 }
 
-// RouterQuery represents the complete event filter for a router
-type RouterQuery struct {
+// HandlerQuery represents the complete event filter for an event Handler
+type HandlerQuery struct {
 	Items []QueryItem
 }
 
-// convertQueryToDcb converts fairway.RouterQuery to dcb.Query
-func (q RouterQuery) toDcb() *dcb.Query {
+// convertQueryToDcb converts fairway.HandlerQuery to dcb.Query
+func (q HandlerQuery) toDcb() *dcb.Query {
 	items := make([]dcb.QueryItem, len(q.Items))
 	for i, item := range q.Items {
 		items[i] = item.toDcb()
@@ -53,17 +53,21 @@ type HandlerFunc func(TaggedEvent, error) bool
 
 // EventHandler routes events from an EventStore to a handler.
 type EventHandler struct {
-	query  RouterQuery
+	query  HandlerQuery
 	handle HandlerFunc
 }
 
-// Query creates a new Router with the specified query items
-func Query(items ...QueryItem) RouterQuery {
-	return RouterQuery{Items: items}
+// Item creates a new QueryItem builder
+func Item() QueryItem {
+	return QueryItem{}
+}
+
+func Query(items ...QueryItem) HandlerQuery {
+	return HandlerQuery{Items: items}
 }
 
 // Handle sets the handler function.
 // Return false from the handler to stop iteration (break).
-func (r RouterQuery) Handle(fn HandlerFunc) *EventHandler {
+func (r HandlerQuery) Handle(fn HandlerFunc) *EventHandler {
 	return &EventHandler{query: r, handle: fn}
 }

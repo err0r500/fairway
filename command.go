@@ -86,6 +86,8 @@ type commandReadAppender struct {
 }
 
 // NewReadAppender creates a ReadAppender with given store
+// it tracks the last versionstamp consumed by the command
+// and injects it directly when using append
 func NewReadAppender(store dcb.DcbStore) EventReadAppender {
 	return &commandReadAppender{
 		store:         store,
@@ -93,21 +95,21 @@ func NewReadAppender(store dcb.DcbStore) EventReadAppender {
 	}
 }
 
-// ReadEvents reads events using the router's query and dispatches to handlers
-func (ra *commandReadAppender) ReadEvents(ctx context.Context, router *EventHandler) error {
-	if router.handle == nil {
+// ReadEvents reads events using the eventHandler's query and dispatches to handlers
+func (ra *commandReadAppender) ReadEvents(ctx context.Context, eventHandler *EventHandler) error {
+	if eventHandler.handle == nil {
 		return nil
 	}
 
 	// Auto-register types from query
-	for _, item := range router.query.Items {
+	for _, item := range eventHandler.query.Items {
 		for _, instance := range item.eventInstances {
 			ra.eventRegistry.register(instance)
 		}
 	}
 
 	// Convert fairway Query to dcb Query
-	ra.query = router.query.toDcb()
+	ra.query = eventHandler.query.toDcb()
 
 	for dcbStoredEvent, err := range ra.store.Read(ctx, *ra.query, nil) {
 		if err != nil {
@@ -129,7 +131,7 @@ func (ra *commandReadAppender) ReadEvents(ctx context.Context, router *EventHand
 		}
 
 		// Dispatch TaggedEvent to handler
-		if !router.handle(TaggedEvent{Event: fairwayEvent, Tags: dcbStoredEvent.Tags}, nil) {
+		if !eventHandler.handle(TaggedEvent{Event: fairwayEvent, Tags: dcbStoredEvent.Tags}, nil) {
 			return nil
 		}
 	}
@@ -153,7 +155,8 @@ func (ra *commandReadAppender) AppendEvents(ctx context.Context, events ...Tagge
 		dcbEvents[i] = dcbEvent
 	}
 
-	// Build condition using query and last versionstamp
+	// Build condition using query if used
+	// (some commands may just append Event(s) without reading anything)
 	if ra.query == nil {
 		return ra.store.Append(ctx, dcbEvents, nil)
 	}
