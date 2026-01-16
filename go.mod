@@ -4,7 +4,6 @@ go 1.24.1
 
 require (
 	github.com/apple/foundationdb/bindings/go v0.0.0-20250911184653-27f7192f47c3
-	github.com/err0r500/fairway/dcb v0.0.0-20260115151249-3462dc2b0cc8
 	github.com/google/uuid v1.6.0
 )
 
