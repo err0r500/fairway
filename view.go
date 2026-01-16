@@ -35,9 +35,7 @@ func (ra viewReader) ReadEvents(ctx context.Context, eventHandler *EventHandler)
 
 	// Auto-register types from query
 	for _, item := range eventHandler.query.Items {
-		for _, instance := range item.eventInstances {
-			ra.eventRegistry.register(instance)
-		}
+		ra.eventRegistry.registerTypes(item.typeRegistry)
 	}
 
 	for dcbStoredEvent, err := range ra.store.Read(ctx, *eventHandler.query.toDcb(), nil) {
@@ -75,10 +73,10 @@ func newEventRegistry() eventRegistry {
 	return eventRegistry{types: make(map[string]reflect.Type)}
 }
 
-// register registers an event type for deserialization
-func (r *eventRegistry) register(events ...any) {
-	for _, e := range events {
-		r.types[resolveEventTypeName(e)] = reflect.TypeOf(e)
+// registerTypes registers event types from a type registry map
+func (r *eventRegistry) registerTypes(types map[string]reflect.Type) {
+	for typeName, typ := range types {
+		r.types[typeName] = typ
 	}
 }
 

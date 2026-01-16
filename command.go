@@ -103,9 +103,7 @@ func (ra *commandReadAppender) ReadEvents(ctx context.Context, eventHandler *Eve
 
 	// Auto-register types from query
 	for _, item := range eventHandler.query.Items {
-		for _, instance := range item.eventInstances {
-			ra.eventRegistry.register(instance)
-		}
+		ra.eventRegistry.registerTypes(item.typeRegistry)
 	}
 
 	// Convert fairway Query to dcb Query

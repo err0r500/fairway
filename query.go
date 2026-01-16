@@ -1,21 +1,29 @@
 package fairway
 
-import "github.com/err0r500/fairway/dcb"
+import (
+	"reflect"
+
+	"github.com/err0r500/fairway/dcb"
+)
 
 // QueryItem represents a single event filter pattern.
 // Types have OR semantics (match any), Tags have AND semantics (must have all).
 type QueryItem struct {
-	typeList       []string
-	tagList        []string
-	eventInstances []any
+	typeList     []string
+	typeRegistry map[string]reflect.Type
+	tagList      []string
 }
 
 // Types adds event types to match (OR semantics).
-// Uses reflection to extract type names from event instances.
+// Uses reflection to extract type names and store type info for deserialization.
 func (q QueryItem) Types(events ...any) QueryItem {
+	if q.typeRegistry == nil {
+		q.typeRegistry = make(map[string]reflect.Type)
+	}
 	for _, e := range events {
-		q.typeList = append(q.typeList, resolveEventTypeName(e))
-		q.eventInstances = append(q.eventInstances, e)
+		typeName := resolveEventTypeName(e)
+		q.typeList = append(q.typeList, typeName)
+		q.typeRegistry[typeName] = reflect.TypeOf(e)
 	}
 	return q
 }
