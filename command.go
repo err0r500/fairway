@@ -14,7 +14,7 @@ type Command interface {
 
 // CommandRunner runs pure Commands
 type CommandRunner interface {
-	Run(ctx context.Context, command Command) error
+	RunPure(ctx context.Context, command Command) error
 }
 
 // commandRunner is the concrete implementation of CommandRunner
@@ -29,8 +29,8 @@ func NewCommandRunner(store dcb.DcbStore) CommandRunner {
 	}
 }
 
-// Run executes a command
-func (cr *commandRunner) Run(ctx context.Context, cmd Command) error {
+// RunPure executes a command
+func (cr *commandRunner) RunPure(ctx context.Context, cmd Command) error {
 	return cmd.Run(ctx, newReadAppender(cr.store))
 }
 
@@ -44,7 +44,7 @@ type CommandWithEffect[Deps any] interface {
 // CommandWithEffectRunner runs commands with side effects and dependency injection.
 // It can run both pure commands (via RunPure) and commands with side effects (via RunWithEffect).
 type CommandWithEffectRunner[Deps any] interface {
-	RunPure(ctx context.Context, command Command) error
+	CommandRunner
 	RunWithEffect(ctx context.Context, command CommandWithEffect[Deps]) error
 }
 

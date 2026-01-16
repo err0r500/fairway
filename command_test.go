@@ -88,14 +88,14 @@ func TestHello(t *testing.T) {
 	runner := fairway.NewCommandRunner(store)
 
 	// Bootstrap: create list twice
-	if err := runner.Run(t.Context(), CreateList{ListId: "listid"}); err != nil {
+	if err := runner.RunPure(t.Context(), CreateList{ListId: "listid"}); err != nil {
 		t.Fatal("initial append error", err)
 	}
-	if err := runner.Run(t.Context(), CreateList{ListId: "listid"}); err != nil {
+	if err := runner.RunPure(t.Context(), CreateList{ListId: "listid"}); err != nil {
 		t.Fatal("initial append error", err)
 	}
 
-	if err := runner.Run(
+	if err := runner.RunPure(
 		t.Context(),
 		AddItem{ListId: "listid", ItemId: "itemId", Text: "text"},
 	); err != nil {
