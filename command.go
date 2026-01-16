@@ -31,7 +31,7 @@ func NewCommandRunner(store dcb.DcbStore) CommandRunner {
 
 // Run executes a command
 func (cr *commandRunner) Run(ctx context.Context, cmd Command) error {
-	return cmd.Run(ctx, NewReadAppender(cr.store))
+	return cmd.Run(ctx, newReadAppender(cr.store))
 }
 
 // COMMANDS WITH SIDE EFFECTS
@@ -64,12 +64,12 @@ func NewCommandWithEffectRunner[Deps any](store dcb.DcbStore, deps Deps) Command
 
 // RunPure executes a pure command (deps are not needed)
 func (cr *commandWithEffectRunner[Deps]) RunPure(ctx context.Context, cmd Command) error {
-	return cmd.Run(ctx, NewReadAppender(cr.store))
+	return cmd.Run(ctx, newReadAppender(cr.store))
 }
 
 // RunWithEffect executes a command with side effects using injected dependencies
 func (cr *commandWithEffectRunner[Deps]) RunWithEffect(ctx context.Context, cmd CommandWithEffect[Deps]) error {
-	return cmd.Run(ctx, NewReadAppender(cr.store), cr.deps)
+	return cmd.Run(ctx, newReadAppender(cr.store), cr.deps)
 }
 
 type EventReadAppender interface {
@@ -85,10 +85,10 @@ type commandReadAppender struct {
 	eventRegistry        eventRegistry
 }
 
-// NewReadAppender creates a ReadAppender with given store
+// newReadAppender creates a ReadAppender with given store
 // it tracks the last versionstamp consumed by the command
 // and injects it directly when using append
-func NewReadAppender(store dcb.DcbStore) EventReadAppender {
+func newReadAppender(store dcb.DcbStore) EventReadAppender {
 	return &commandReadAppender{
 		store:         store,
 		eventRegistry: newEventRegistry(),
@@ -102,7 +102,7 @@ func (ra *commandReadAppender) ReadEvents(ctx context.Context, eventHandler *Eve
 	}
 
 	// Auto-register types from query
-	for _, item := range eventHandler.query.Items {
+	for _, item := range eventHandler.query.items {
 		ra.eventRegistry.registerTypes(item.typeRegistry)
 	}
 

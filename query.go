@@ -6,12 +6,35 @@ import (
 	"github.com/err0r500/fairway/dcb"
 )
 
+// Query represents the complete event filter for an event Handler
+type Query struct {
+	items []QueryItem
+}
+
 // QueryItem represents a single event filter pattern.
 // Types have OR semantics (match any), Tags have AND semantics (must have all).
 type QueryItem struct {
-	typeList     []string
-	typeRegistry map[string]reflect.Type
-	tagList      []string
+	typeList     []string                // used for building dbc.Query
+	tagList      []string                // used for building dbc.Query
+	typeRegistry map[string]reflect.Type // used for deserialization of events based on their type
+}
+
+// HandlerFunc processes an event. Return false to stop iteration.
+type HandlerFunc func(TaggedEvent, error) bool
+
+// Handle sets the handler function.
+// Return false from the handler to stop iteration (break).
+func (r Query) Handle(fn HandlerFunc) *EventHandler {
+	return &EventHandler{query: r, handle: fn}
+}
+
+// convertQueryToDcb converts fairway.HandlerQuery to dcb.Query
+func (q Query) toDcb() *dcb.Query {
+	items := make([]dcb.QueryItem, len(q.items))
+	for i, item := range q.items {
+		items[i] = item.toDcb()
+	}
+	return &dcb.Query{Items: items}
 }
 
 // Types adds event types to match (OR semantics).
@@ -42,40 +65,17 @@ func (q QueryItem) toDcb() dcb.QueryItem {
 	}
 }
 
-// HandlerQuery represents the complete event filter for an event Handler
-type HandlerQuery struct {
-	Items []QueryItem
-}
-
-// convertQueryToDcb converts fairway.HandlerQuery to dcb.Query
-func (q HandlerQuery) toDcb() *dcb.Query {
-	items := make([]dcb.QueryItem, len(q.Items))
-	for i, item := range q.Items {
-		items[i] = item.toDcb()
-	}
-	return &dcb.Query{Items: items}
-}
-
-// HandlerFunc processes an event. Return false to stop iteration.
-type HandlerFunc func(TaggedEvent, error) bool
-
 // EventHandler routes events from an EventStore to a handler.
 type EventHandler struct {
-	query  HandlerQuery
+	query  Query
 	handle HandlerFunc
 }
 
-// Item creates a new QueryItem builder
-func Item() QueryItem {
+// NewQueryItem creates a new QueryItem builder
+func NewQueryItem() QueryItem {
 	return QueryItem{}
 }
 
-func Query(items ...QueryItem) HandlerQuery {
-	return HandlerQuery{Items: items}
-}
-
-// Handle sets the handler function.
-// Return false from the handler to stop iteration (break).
-func (r HandlerQuery) Handle(fn HandlerFunc) *EventHandler {
-	return &EventHandler{query: r, handle: fn}
+func QueryItems(items ...QueryItem) Query {
+	return Query{items: items}
 }

@@ -34,7 +34,7 @@ func (ra viewReader) ReadEvents(ctx context.Context, eventHandler *EventHandler)
 	}
 
 	// Auto-register types from query
-	for _, item := range eventHandler.query.Items {
+	for _, item := range eventHandler.query.items {
 		ra.eventRegistry.registerTypes(item.typeRegistry)
 	}
 

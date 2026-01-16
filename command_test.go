@@ -26,6 +26,18 @@ type TodoItemAdded struct {
 	Text   string
 }
 
+// CreateList is a bootstrap command that only appends (no query)
+type CreateList struct {
+	ListId string
+}
+
+func (cmd CreateList) Run(ctx context.Context, ra fairway.EventReadAppender) error {
+	return ra.AppendEvents(ctx, fairway.NewEvent(
+		TodoListCreated{ListId: cmd.ListId},
+		"list:"+cmd.ListId,
+	))
+}
+
 type AddItem struct {
 	ListId string
 	ItemId string
@@ -35,8 +47,8 @@ type AddItem struct {
 func (cmd AddItem) Run(ctx context.Context, ra fairway.EventReadAppender) error {
 	var count int
 
-	handler := fairway.Query(
-		fairway.Item().Types(TodoListCreated{}, TodoListDeleted{}).Tags("list:" + cmd.ListId),
+	handler := fairway.QueryItems(
+		fairway.NewQueryItem().Types(TodoListCreated{}, TodoListDeleted{}).Tags("list:" + cmd.ListId),
 	).Handle(func(te fairway.TaggedEvent, err error) bool {
 		if err != nil {
 			return false
@@ -73,12 +85,17 @@ func (cmd AddItem) Run(ctx context.Context, ra fairway.EventReadAppender) error 
 func TestHello(t *testing.T) {
 	store := SetupTestStore(t)
 
-	e := fairway.NewEvent(TodoListCreated{ListId: "listid"}, "list:listid")
-	if err := fairway.NewReadAppender(store).AppendEvents(t.Context(), e, e); err != nil {
+	runner := fairway.NewCommandRunner(store)
+
+	// Bootstrap: create list twice
+	if err := runner.Run(t.Context(), CreateList{ListId: "listid"}); err != nil {
+		t.Fatal("initial append error", err)
+	}
+	if err := runner.Run(t.Context(), CreateList{ListId: "listid"}); err != nil {
 		t.Fatal("initial append error", err)
 	}
 
-	if err := fairway.NewCommandRunner(store).Run(
+	if err := runner.Run(
 		t.Context(),
 		AddItem{ListId: "listid", ItemId: "itemId", Text: "text"},
 	); err != nil {
@@ -99,9 +116,9 @@ type ArchiveList struct {
 func (cmd ArchiveList) Run(ctx context.Context, ra fairway.EventReadAppender, deps commandDeps) error {
 	var count int
 
-	handler := fairway.Query(
-		fairway.Item().Types(TodoListCreated{}).Tags("list:" + cmd.ListId),
-		fairway.Item().Types(TodoItemAdded{}).Tags("list:" + cmd.ListId),
+	handler := fairway.QueryItems(
+		fairway.NewQueryItem().Types(TodoListCreated{}).Tags("list:" + cmd.ListId),
+		fairway.NewQueryItem().Types(TodoItemAdded{}).Tags("list:" + cmd.ListId),
 	).Handle(func(te fairway.TaggedEvent, err error) bool {
 		if err != nil {
 			return false
@@ -126,15 +143,14 @@ func (cmd ArchiveList) Run(ctx context.Context, ra fairway.EventReadAppender, de
 func TestCommandWithSideEffect(t *testing.T) {
 	store := SetupTestStore(t)
 
-	// Create initial events
-	e := fairway.NewEvent(TodoListCreated{ListId: "list1"}, "list:list1")
-	if err := fairway.NewReadAppender(store).AppendEvents(t.Context(), e); err != nil {
-		t.Fatal("initial append error", err)
-	}
-
 	// Create runner with dependencies
 	deps := commandDeps{Logger: log.Default()}
 	runner := fairway.NewCommandWithEffectRunner(store, deps)
+
+	// Bootstrap: create initial list
+	if err := runner.RunPure(t.Context(), CreateList{ListId: "list1"}); err != nil {
+		t.Fatal("initial append error", err)
+	}
 
 	// Execute command with side effects
 	if err := runner.RunWithEffect(t.Context(), ArchiveList{ListId: "list1"}); err != nil {
@@ -145,15 +161,17 @@ func TestCommandWithSideEffect(t *testing.T) {
 func TestCommandWithEffectRunner_CanRunPureCommands(t *testing.T) {
 	store := SetupTestStore(t)
 
-	// Create initial events
-	e := fairway.NewEvent(TodoListCreated{ListId: "list2"}, "list:list2")
-	if err := fairway.NewReadAppender(store).AppendEvents(t.Context(), e, e); err != nil {
-		t.Fatal("initial append error", err)
-	}
-
 	// Create runner with dependencies
 	deps := commandDeps{Logger: log.Default()}
 	runner := fairway.NewCommandWithEffectRunner(store, deps)
+
+	// Bootstrap: create list twice
+	if err := runner.RunPure(t.Context(), CreateList{ListId: "list2"}); err != nil {
+		t.Fatal("initial append error", err)
+	}
+	if err := runner.RunPure(t.Context(), CreateList{ListId: "list2"}); err != nil {
+		t.Fatal("initial append error", err)
+	}
 
 	// CommandWithEffectRunner can also run pure commands
 	if err := runner.RunPure(t.Context(), AddItem{ListId: "list2", ItemId: "item1", Text: "test"}); err != nil {
