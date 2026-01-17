@@ -3,6 +3,7 @@ package change
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 
 	"github.com/err0r500/fairway"
@@ -10,6 +11,7 @@ import (
 )
 
 func init() {
+	log.Println("registering add_item")
 	ChangeRegistry.RegisterCommand("POST /api/lists/{listId}/items", addItemHttpHandler)
 }
 

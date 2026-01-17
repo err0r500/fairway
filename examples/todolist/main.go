@@ -1,9 +1,8 @@
-//go:generate go run github.com/err0r500/fairway/cmd
-
 package main
 
 import (
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 
@@ -17,9 +16,13 @@ func main() {
 	// Setup FDB
 	fdb.MustAPIVersion(740)
 	db := fdb.MustOpenDefault()
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}))
+	slog.SetDefault(logger)
 
 	// core
-	coreStore := dcb.NewDcbStore(db, "core")
+	coreStore := dcb.NewDcbStore(db, "core", dcb.StoreOptions{}.WithLogger(logger))
 
 	// Setup router
 	mux := http.NewServeMux()
@@ -27,13 +30,6 @@ func main() {
 	// view.ViewRegistry.RegisterRoutes(mux, client)
 
 	// Start server
-	log.Println("Server starting on :8080")
+	logger.Info("Server starting on :8080")
 	log.Fatal(http.ListenAndServe(":8080", mux))
-}
-
-func getEnv(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
 }
