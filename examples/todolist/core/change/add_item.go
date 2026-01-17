@@ -73,7 +73,7 @@ func (cmd addItem) Run(ctx context.Context, ev fairway.EventReadAppender) error 
 	}
 
 	if itemAlreadyExists {
-		return listAlreadyExistsErr
+		return itemAlreadyExistsErr
 	}
 
 	return ev.AppendEvents(ctx,
