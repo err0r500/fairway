@@ -3,52 +3,81 @@ package change
 import (
 	"context"
 	"encoding/json"
-	"log"
+	"errors"
 	"net/http"
 
 	"github.com/err0r500/fairway"
-	"github.com/google/uuid"
+	"github.com/err0r500/fairway/examples/todolist/core/event"
 )
 
 func init() {
-	log.Println("registering add_item")
-	ChangeRegistry.RegisterCommand("POST /api/lists/{listId}/items", addItemHttpHandler)
+	ChangeRegistry.RegisterCommand("POST /api/lists/{listId}/items/{itemId}", addItemHttpHandler)
 }
+
+var itemAlreadyExistsErr = errors.New("item already exists")
 
 func addItemHttpHandler(runner fairway.CommandRunner) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		listId := r.PathValue("listId")
-
 		var req struct {
-			Text string `json:"text"`
+			Text string `json:"text" validate:"required"`
 		}
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, `{"error": "Invalid request"}`, http.StatusBadRequest)
+		if !fairway.JsonParse(w, r, &req) {
 			return
 		}
 
-		itemId := uuid.New().String()
-		if err := runner.RunPure(r.Context(), AddItem{
-			ListId: listId,
-			ItemId: itemId,
-			Text:   req.Text,
+		if err := runner.RunPure(r.Context(), addItem{
+			listId: r.PathValue("listId"),
+			itemId: r.PathValue("itemId"),
+			text:   req.Text,
 		}); err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+			switch err {
+			case itemAlreadyExistsErr:
+				w.WriteHeader(http.StatusConflict)
+
+			default:
+				w.WriteHeader(http.StatusInternalServerError)
+				json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+			}
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"itemId": itemId})
+		w.WriteHeader(http.StatusCreated)
 	}
 }
 
-type AddItem struct {
-	ListId string
-	ItemId string
-	Text   string
+type addItem struct {
+	listId string
+	itemId string
+	text   string
 }
 
-func (cmd AddItem) Run(ctx context.Context, ev fairway.EventReadAppender) error {
-	return nil
+func (cmd addItem) Run(ctx context.Context, ev fairway.EventReadAppender) error {
+	itemAlreadyExists := false
+
+	if err := ev.ReadEvents(ctx,
+		fairway.QueryItems(
+			fairway.NewQueryItem().Types(event.TodoItemAdded{}).Tags("item_id:"+cmd.itemId),
+		),
+		func(te fairway.TaggedEvent, err error) bool {
+			switch te.Event.(type) {
+			case event.TodoItemAdded:
+				itemAlreadyExists = true
+				return false
+			default:
+				return true
+			}
+		}); err != nil {
+		return err
+	}
+
+	if itemAlreadyExists {
+		return itemAlreadyExistsErr
+	}
+
+	return ev.AppendEvents(ctx,
+		fairway.Event(
+			event.TodoItemAdded{ListId: cmd.listId, ItemId: cmd.itemId, Text: cmd.text},
+			"list_id:"+cmd.listId,
+			"item_id:"+cmd.itemId,
+		))
 }

@@ -1,7 +1,10 @@
 package fairway
 
 import (
+	"encoding/json"
 	"net/http"
+
+	"github.com/go-playground/validator/v10"
 )
 
 type HttpChangeRegistry struct {
@@ -54,3 +57,19 @@ func (registry HttpChangeRegistry) RegisterRoutes(mux *http.ServeMux, runner Com
 // 		mux.HandleFunc(reg.Pattern, reg.Handler(client))
 // 	}
 // }
+
+// TODO : this function does too much, should return errors and
+// let the client handle them
+// JsonParse decodes JSON and validates struct
+// Returns true if successful, false if failed (400 written)
+func JsonParse[T any](w http.ResponseWriter, r *http.Request, v *T) bool {
+	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return false
+	}
+	if err := validator.New().Struct(v); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return false
+	}
+	return true
+}

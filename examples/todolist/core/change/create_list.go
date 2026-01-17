@@ -3,7 +3,6 @@ package change
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"net/http"
 
 	"github.com/err0r500/fairway"
@@ -11,7 +10,6 @@ import (
 )
 
 func init() {
-	log.Println("registering create_list")
 	ChangeRegistry.RegisterCommand("POST /api/lists/{listId}", createListHttpHandler)
 }
 
@@ -20,10 +18,9 @@ func createListHttpHandler(runner fairway.CommandRunner) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		listId := r.PathValue("listId")
 		var req struct {
-			Name string `json:"name"`
+			Name string `json:"name" validate:"required"`
 		}
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, `{"error": "Invalid request"}`, http.StatusBadRequest)
+		if !fairway.JsonParse(w, r, &req) {
 			return
 		}
 
@@ -36,8 +33,7 @@ func createListHttpHandler(runner fairway.CommandRunner) http.HandlerFunc {
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"listId": listId})
+		w.WriteHeader(http.StatusCreated)
 	}
 }
 

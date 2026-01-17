@@ -22,12 +22,6 @@ type QueryItem struct {
 // HandlerFunc processes an event. Return false to stop iteration.
 type HandlerFunc func(TaggedEvent, error) bool
 
-// Handle sets the handler function.
-// Return false from the handler to stop iteration (break).
-func (r Query) Handle(fn HandlerFunc) *EventHandler {
-	return &EventHandler{query: r, handle: fn}
-}
-
 // convertQueryToDcb converts fairway.HandlerQuery to dcb.Query
 func (q Query) toDcb() *dcb.Query {
 	items := make([]dcb.QueryItem, len(q.items))
@@ -63,12 +57,6 @@ func (q QueryItem) toDcb() dcb.QueryItem {
 		Types: q.typeList,
 		Tags:  q.tagList,
 	}
-}
-
-// EventHandler routes events from an EventStore to a handler.
-type EventHandler struct {
-	query  Query
-	handle HandlerFunc
 }
 
 // NewQueryItem creates a new QueryItem builder
