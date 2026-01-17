@@ -89,6 +89,20 @@ func CollectEvents(t *testing.T, seq func(func(StoredEvent, error) bool)) []Stor
 	return events
 }
 
+func CollectEventsWithError(t *testing.T, seq func(func(StoredEvent, error) bool)) ([]StoredEvent, error) {
+	t.Helper()
+	var events []StoredEvent
+	var lastErr error
+	for event, err := range seq {
+		if err != nil {
+			lastErr = err
+			break
+		}
+		events = append(events, event)
+	}
+	return events, lastErr
+}
+
 func EventsAreStriclyOrdered(events []StoredEvent) bool {
 	for i := 1; i < len(events); i++ {
 		if events[i].Position.Compare(events[i-1].Position) <= 0 {

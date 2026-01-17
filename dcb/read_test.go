@@ -363,3 +363,111 @@ func setEventsTags(events []dcb.Event, tags []string) {
 		events[i].Tags = tags
 	}
 }
+
+func TestReadWithCancelledContext(tt *testing.T) {
+	tt.Parallel()
+
+	// Given - store with events
+	ctx := context.Background()
+	store := dcb.SetupTestStore(tt)
+	events := []dcb.Event{
+		{Type: "test", Data: []byte("data")},
+	}
+	err := store.Append(ctx, events, nil)
+	assert.NoError(tt, err)
+
+	// When - read with already cancelled context
+	cancelledCtx, cancel := context.WithCancel(ctx)
+	cancel()
+
+	var readErr error
+	for _, err := range store.Read(cancelledCtx, dcb.Query{Items: []dcb.QueryItem{{Types: []string{"test"}}}}, nil) {
+		if err != nil {
+			readErr = err
+			break
+		}
+	}
+
+	// Then - fails with context error
+	assert.ErrorIs(tt, readErr, context.Canceled)
+}
+
+func TestReadAllWithCancelledContext(tt *testing.T) {
+	tt.Parallel()
+
+	// Given - store with events
+	ctx := context.Background()
+	store := dcb.SetupTestStore(tt)
+	events := []dcb.Event{
+		{Type: "test", Data: []byte("data")},
+	}
+	err := store.Append(ctx, events, nil)
+	assert.NoError(tt, err)
+
+	// When - read all with already cancelled context
+	cancelledCtx, cancel := context.WithCancel(ctx)
+	cancel()
+
+	var readErr error
+	for _, err := range store.ReadAll(cancelledCtx) {
+		if err != nil {
+			readErr = err
+			break
+		}
+	}
+
+	// Then - fails with context error
+	assert.ErrorIs(tt, readErr, context.Canceled)
+}
+
+func TestReadCountsEventsCorrectly(tt *testing.T) {
+	tt.Parallel()
+	rapid.Check(tt, func(t *rapid.T) {
+		// Given - store with multiple events
+		ctx := context.Background()
+		store := dcb.SetupTestStore(tt)
+		eventType := dcb.RandomEventType(t)
+		events := dcb.RandomEvents(t)
+		setEventsType(events, eventType)
+		err := store.Append(ctx, events, nil)
+		assert.NoError(t, err)
+
+		// When - read all events
+		storedEvents := dcb.CollectEvents(tt, store.Read(ctx,
+			dcb.Query{Items: []dcb.QueryItem{{Types: []string{eventType}}}}, nil))
+
+		// Then - count matches appended events
+		assert.Len(t, storedEvents, len(events))
+	})
+}
+
+func TestEventOrderingWithMultipleRanges(tt *testing.T) {
+	tt.Parallel()
+	rapid.Check(tt, func(t *rapid.T) {
+		// Given - events of multiple types appended together
+		ctx := context.Background()
+		store := dcb.SetupTestStore(tt)
+
+		type1 := dcb.RandomEventType(t)
+		type2 := type1 + "_other"
+
+		e1 := dcb.RandomEvents(t)
+		setEventsType(e1, type1)
+
+		e2 := dcb.RandomEvents(t)
+		setEventsType(e2, type2)
+
+		// Append all together so they're interleaved
+		allEvents := append(e1, e2...)
+		err := store.Append(ctx, allEvents, nil)
+		assert.NoError(t, err)
+
+		// When - read with query matching both types (multiple ranges)
+		storedEvents := dcb.CollectEvents(tt, store.Read(ctx,
+			dcb.Query{Items: []dcb.QueryItem{{Types: []string{type1, type2}}}}, nil))
+
+		// Then - events are strictly ordered by versionstamp
+		assert.True(t, dcb.EventsAreStriclyOrdered(storedEvents))
+		assert.Len(t, storedEvents, len(allEvents))
+	})
+}

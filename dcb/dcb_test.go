@@ -1,8 +1,116 @@
 package dcb_test
 
-// // ============================================================================
-// // INTEGRATION - Append then Read
-// // ============================================================================
+import (
+	"context"
+	"testing"
+
+	"github.com/err0r500/fairway/dcb"
+	"github.com/stretchr/testify/assert"
+	"pgregory.net/rapid"
+)
+
+// Tests for QueryItem helper methods (hasTypesOnly, hasTagsOnly, hasTypesAndTags)
+
+func TestReadEmptyQuery(tt *testing.T) {
+	tt.Parallel()
+
+	// Given - store with events
+	ctx := context.Background()
+	store := dcb.SetupTestStore(tt)
+
+	// When - read with empty query item (no types, no tags)
+	var events []dcb.StoredEvent
+	var lastErr error
+	for event, err := range store.Read(ctx, dcb.Query{Items: []dcb.QueryItem{{}}}, nil) {
+		if err != nil {
+			lastErr = err
+			break
+		}
+		events = append(events, event)
+	}
+
+	// Then - fails with ErrInvalidQuery
+	assert.ErrorIs(tt, lastErr, dcb.ErrInvalidQuery)
+}
+
+func TestReadQueryWithEmptyTypes(tt *testing.T) {
+	tt.Parallel()
+	rapid.Check(tt, func(t *rapid.T) {
+		// Given - store with events
+		ctx := context.Background()
+		store := dcb.SetupTestStore(tt)
+		tag := dcb.RandomEventTag(t)
+		events := dcb.RandomEvents(t)
+		setEventsTags(events, []string{tag})
+		err := store.Append(ctx, events, nil)
+		assert.NoError(t, err)
+
+		// When - read with empty types array but valid tags
+		storedEvents := dcb.CollectEvents(tt, store.Read(ctx,
+			dcb.Query{Items: []dcb.QueryItem{{Types: []string{}, Tags: []string{tag}}}}, nil))
+
+		// Then - returns events with tag (tags-only query)
+		assert.Len(t, storedEvents, len(events))
+		for _, e := range storedEvents {
+			assert.Contains(t, e.Event.Tags, tag)
+		}
+	})
+}
+
+func TestReadQueryWithEmptyTags(tt *testing.T) {
+	tt.Parallel()
+	rapid.Check(tt, func(t *rapid.T) {
+		// Given - store with events
+		ctx := context.Background()
+		store := dcb.SetupTestStore(tt)
+		eventType := dcb.RandomEventType(t)
+		events := dcb.RandomEvents(t)
+		setEventsType(events, eventType)
+		err := store.Append(ctx, events, nil)
+		assert.NoError(t, err)
+
+		// When - read with empty tags array but valid types
+		storedEvents := dcb.CollectEvents(tt, store.Read(ctx,
+			dcb.Query{Items: []dcb.QueryItem{{Types: []string{eventType}, Tags: []string{}}}}, nil))
+
+		// Then - returns events of type (types-only query)
+		assert.Len(t, storedEvents, len(events))
+		for _, e := range storedEvents {
+			assert.Equal(t, eventType, e.Event.Type)
+		}
+	})
+}
+
+func TestVersionstampCompare(tt *testing.T) {
+	tt.Parallel()
+
+	// Given
+	vs1 := dcb.Versionstamp{0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0}
+	vs2 := dcb.Versionstamp{0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0}
+	vs3 := dcb.Versionstamp{0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0}
+
+	// When/Then
+	assert.Equal(tt, -1, vs1.Compare(vs2)) // vs1 < vs2
+	assert.Equal(tt, 1, vs2.Compare(vs1))  // vs2 > vs1
+	assert.Equal(tt, 0, vs1.Compare(vs3))  // vs1 == vs3
+}
+
+func TestVersionstampString(tt *testing.T) {
+	tt.Parallel()
+
+	// Given
+	vs := dcb.Versionstamp{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c}
+
+	// When
+	str := vs.String()
+
+	// Then
+	assert.Equal(tt, "0102030405060708090a0b0c", str)
+}
+
+// ============================================================================
+// INTEGRATION - Append then Read
+// ============================================================================
 
 // func TestAppendThenReadBack(tt *testing.T) {
 // 	tt.Parallel()

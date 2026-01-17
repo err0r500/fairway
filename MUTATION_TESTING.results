@@ -1,170 +1,115 @@
-➜  fairway git:(feat/add-command) ✗ gremlins unleash -t test
+gremlins unleash -t test -E "dcb/examples/" -E "dcb/test_helpers.go"
 Starting...
-Gathering coverage... done in 19.935539417s
-      KILLED CONDITIONALS_NEGATION at command.go:158:14
-      KILLED CONDITIONALS_NEGATION at command.go:127:10
-      KILLED CONDITIONALS_NEGATION at command.go:100:25
-      KILLED CONDITIONALS_NEGATION at command.go:142:17
+Gathering coverage... done in 20.816285416s
       KILLED CONDITIONALS_NEGATION at command.go:113:10
+      KILLED CONDITIONALS_NEGATION at command.go:127:10
+      KILLED CONDITIONALS_NEGATION at command.go:142:17
+      KILLED CONDITIONALS_NEGATION at command.go:158:14
       KILLED CONDITIONALS_NEGATION at command.go:118:16
+      KILLED CONDITIONALS_NEGATION at command.go:100:25
       KILLED CONDITIONALS_NEGATION at command.go:150:10
+      KILLED CONDITIONALS_NEGATION at dcb/append.go:30:17
+      KILLED CONDITIONALS_NEGATION at dcb/append.go:26:27
       KILLED CONDITIONALS_NEGATION at dcb/append.go:61:16
+      KILLED CONDITIONALS_NEGATION at dcb/append.go:39:17
       KILLED CONDITIONALS_NEGATION at dcb/append.go:68:22
+      KILLED CONDITIONALS_NEGATION at dcb/append.go:56:28
       KILLED CONDITIONALS_NEGATION at dcb/append.go:115:9
+      KILLED ARITHMETIC_BASE at dcb/append.go:131:46
+      KILLED CONDITIONALS_NEGATION at dcb/append.go:164:9
+      KILLED CONDITIONALS_NEGATION at dcb/append.go:138:10
+      KILLED CONDITIONALS_NEGATION at dcb/append.go:151:10
        LIVED CONDITIONALS_NEGATION at dcb/append.go:89:17
-      KILLED CONDITIONALS_NEGATION at dcb/append.go:79:56
-      KILLED CONDITIONALS_NEGATION at dcb/append.go:129:21
-      KILLED ARITHMETIC_BASE at dcb/append.go:132:47
-       LIVED CONDITIONALS_BOUNDARY at dcb/append.go:129:21
       KILLED CONDITIONALS_NEGATION at dcb/append.go:122:9
-      KILLED CONDITIONALS_NEGATION at dcb/append.go:166:9
-      KILLED CONDITIONALS_NEGATION at dcb/append.go:139:11
-   TIMED OUT CONDITIONALS_NEGATION at dcb/append.go:26:27
-      KILLED CONDITIONALS_NEGATION at dcb/append.go:153:10
-   TIMED OUT CONDITIONALS_NEGATION at dcb/append.go:30:17
-   TIMED OUT CONDITIONALS_NEGATION at dcb/append.go:39:17
-   TIMED OUT CONDITIONALS_NEGATION at dcb/append.go:56:28
-   TIMED OUT CONDITIONALS_NEGATION at dcb/append.go:63:11
+      KILLED CONDITIONALS_NEGATION at dcb/append.go:79:56
+       LIVED CONDITIONALS_BOUNDARY at dcb/dcb.go:73:22
       KILLED CONDITIONALS_BOUNDARY at dcb/dcb.go:78:22
-       LIVED CONDITIONALS_BOUNDARY at dcb/dcb.go:68:22
-       LIVED CONDITIONALS_BOUNDARY at dcb/dcb.go:73:21
-      KILLED CONDITIONALS_NEGATION at dcb/dcb.go:180:10
-       LIVED CONDITIONALS_BOUNDARY at dcb/dcb.go:78:41
+      KILLED CONDITIONALS_NEGATION at dcb/dcb.go:73:22
+      KILLED CONDITIONALS_NEGATION at dcb/dcb.go:78:22
+      KILLED CONDITIONALS_NEGATION at dcb/dcb.go:73:41
+   TIMED OUT CONDITIONALS_NEGATION at dcb/append.go:63:11
+      KILLED INVERT_NEGATIVES at dcb/dcb.go:190:42
    TIMED OUT CONDITIONALS_NEGATION at dcb/dcb.go:68:22
+      KILLED CONDITIONALS_NEGATION at dcb/dcb.go:218:13
+       LIVED CONDITIONALS_BOUNDARY at dcb/dcb.go:78:41
+      KILLED CONDITIONALS_NEGATION at dcb/dcb.go:255:12
+      KILLED ARITHMETIC_BASE at dcb/dcb.go:190:42
       KILLED CONDITIONALS_NEGATION at dcb/dcb.go:186:10
-   TIMED OUT CONDITIONALS_NEGATION at dcb/dcb.go:68:41
-   TIMED OUT CONDITIONALS_NEGATION at dcb/dcb.go:73:21
-      KILLED INVERT_NEGATIVES at dcb/dcb.go:193:42
-   TIMED OUT CONDITIONALS_NEGATION at dcb/dcb.go:73:41
-   TIMED OUT CONDITIONALS_NEGATION at dcb/dcb.go:78:22
-      KILLED CONDITIONALS_NEGATION at dcb/dcb.go:258:12
-       LIVED CONDITIONALS_BOUNDARY at dcb/dcb.go:189:20
-      KILLED ARITHMETIC_BASE at dcb/dcb.go:193:42
-      KILLED CONDITIONALS_NEGATION at dcb/dcb.go:221:13
-      KILLED INVERT_NEGATIVES at dcb/dcb.go:283:34
-      KILLED CONDITIONALS_NEGATION at dcb/dcb.go:249:10
-      KILLED CONDITIONALS_NEGATION at dcb/dcb.go:189:20
-      KILLED ARITHMETIC_BASE at dcb/dcb.go:283:34
-   TIMED OUT CONDITIONALS_NEGATION at dcb/dcb.go:78:41
-       LIVED CONDITIONALS_NEGATION at dcb/dcb.go:223:12
-       LIVED CONDITIONALS_NEGATION at dcb/dcb.go:260:11
-   TIMED OUT CONDITIONALS_NEGATION at dcb/dcb.go:278:9
-   TIMED OUT CONDITIONALS_NEGATION at dcb/dcb.go:278:33
- NOT COVERED ARITHMETIC_BASE at dcb/examples/todo-bench/main.go:25:44
- NOT COVERED CONDITIONALS_NEGATION at dcb/examples/todo-bench/main.go:38:17
- NOT COVERED CONDITIONALS_NEGATION at dcb/examples/todo-bench/main.go:50:11
- NOT COVERED CONDITIONALS_NEGATION at dcb/examples/todo-bench/main.go:50:30
- NOT COVERED CONDITIONALS_NEGATION at dcb/examples/todo-bench/main.go:54:11
- NOT COVERED INCREMENT_DECREMENT at dcb/examples/todo-bench/main.go:70:12
- NOT COVERED CONDITIONALS_NEGATION at dcb/examples/todo-bench/main.go:71:16
- NOT COVERED ARITHMETIC_BASE at dcb/examples/todo-bench/main.go:76:27
- NOT COVERED CONDITIONALS_NEGATION at dcb/examples/todo-bench/main.go:268:29
- NOT COVERED CONDITIONALS_NEGATION at dcb/examples/todo-bench/main.go:331:48
- NOT COVERED CONDITIONALS_BOUNDARY at dcb/examples/todo-bench/main.go:337:16
- NOT COVERED CONDITIONALS_NEGATION at dcb/examples/todo-bench/main.go:337:16
- NOT COVERED CONDITIONALS_BOUNDARY at dcb/examples/todo-bench/main.go:340:18
- NOT COVERED CONDITIONALS_NEGATION at dcb/examples/todo-bench/main.go:340:18
- NOT COVERED CONDITIONALS_BOUNDARY at dcb/examples/todo-bench/main.go:353:15
- NOT COVERED CONDITIONALS_NEGATION at dcb/examples/todo-bench/main.go:353:15
- NOT COVERED INCREMENT_DECREMENT at dcb/examples/todo-bench/main.go:365:12
- NOT COVERED CONDITIONALS_NEGATION at dcb/examples/todo-bench/main.go:366:16
- NOT COVERED ARITHMETIC_BASE at dcb/examples/todo-bench/main.go:371:27
- NOT COVERED CONDITIONALS_BOUNDARY at dcb/examples/todo-bench/main.go:388:16
- NOT COVERED CONDITIONALS_NEGATION at dcb/examples/todo-bench/main.go:388:16
- NOT COVERED INCREMENT_DECREMENT at dcb/examples/todo-bench/main.go:388:33
- NOT COVERED ARITHMETIC_BASE at dcb/examples/todo-bench/main.go:407:26
- NOT COVERED INVERT_NEGATIVES at dcb/examples/todo-bench/main.go:413:19
- NOT COVERED ARITHMETIC_BASE at dcb/examples/todo-bench/main.go:413:19
- NOT COVERED ARITHMETIC_BASE at dcb/examples/todo-bench/main.go:415:27
- NOT COVERED ARITHMETIC_BASE at dcb/examples/todo-bench/main.go:417:26
- NOT COVERED CONDITIONALS_BOUNDARY at dcb/examples/todo-bench/main.go:441:17
- NOT COVERED CONDITIONALS_NEGATION at dcb/examples/todo-bench/main.go:441:17
- NOT COVERED INCREMENT_DECREMENT at dcb/examples/todo-bench/main.go:441:32
- NOT COVERED CONDITIONALS_NEGATION at dcb/examples/todo-bench/main.go:453:56
- NOT COVERED CONDITIONALS_BOUNDARY at dcb/examples/todo-bench/main.go:455:16
- NOT COVERED CONDITIONALS_NEGATION at dcb/examples/todo-bench/main.go:455:16
- NOT COVERED CONDITIONALS_NEGATION at dcb/examples/todo-bench/main.go:455:38
- NOT COVERED ARITHMETIC_BASE at dcb/examples/todo-bench/main.go:455:32
-   TIMED OUT CONDITIONALS_NEGATION at dcb/dcb.go:309:15
-   TIMED OUT INVERT_NEGATIVES at dcb/dcb.go:319:27
-   TIMED OUT ARITHMETIC_BASE at dcb/dcb.go:319:27
-   TIMED OUT CONDITIONALS_BOUNDARY at dcb/dcb.go:321:22
-   TIMED OUT CONDITIONALS_NEGATION at dcb/dcb.go:321:22
-   TIMED OUT INCREMENT_DECREMENT at dcb/dcb.go:321:43
+      KILLED CONDITIONALS_NEGATION at dcb/dcb.go:180:10
+      KILLED CONDITIONALS_NEGATION at dcb/dcb.go:78:41
+   TIMED OUT CONDITIONALS_NEGATION at dcb/dcb.go:68:42
+      KILLED INVERT_NEGATIVES at dcb/dcb.go:280:34
+      KILLED ARITHMETIC_BASE at dcb/dcb.go:280:34
+      KILLED CONDITIONALS_NEGATION at dcb/dcb.go:246:10
+      KILLED CONDITIONALS_NEGATION at dcb/dcb.go:306:15
+       LIVED CONDITIONALS_NEGATION at dcb/dcb.go:220:12
+   TIMED OUT CONDITIONALS_NEGATION at dcb/dcb.go:257:11
+   TIMED OUT CONDITIONALS_NEGATION at dcb/dcb.go:275:9
+   TIMED OUT CONDITIONALS_NEGATION at dcb/dcb.go:275:33
+   TIMED OUT INVERT_NEGATIVES at dcb/dcb.go:316:27
+   TIMED OUT ARITHMETIC_BASE at dcb/dcb.go:316:27
+   TIMED OUT CONDITIONALS_BOUNDARY at dcb/dcb.go:318:22
+   TIMED OUT CONDITIONALS_NEGATION at dcb/dcb.go:318:22
+   TIMED OUT INCREMENT_DECREMENT at dcb/dcb.go:318:43
  NOT COVERED CONDITIONALS_NEGATION at dcb/read.go:111:16
-      KILLED CONDITIONALS_NEGATION at dcb/read.go:24:11
       KILLED CONDITIONALS_NEGATION at dcb/read.go:19:28
+      KILLED CONDITIONALS_NEGATION at dcb/read.go:24:11
       KILLED CONDITIONALS_NEGATION at dcb/read.go:64:10
-      KILLED CONDITIONALS_NEGATION at dcb/read.go:118:9
- NOT COVERED CONDITIONALS_NEGATION at dcb/read.go:150:18
       KILLED CONDITIONALS_NEGATION at dcb/read.go:39:18
-      KILLED CONDITIONALS_NEGATION at dcb/dcb.go:324:19
-      KILLED CONDITIONALS_NEGATION at dcb/read.go:186:18
-       LIVED CONDITIONALS_NEGATION at dcb/read.go:140:17
+ NOT COVERED CONDITIONALS_NEGATION at dcb/read.go:150:18
+      KILLED CONDITIONALS_NEGATION at dcb/read.go:118:9
+   TIMED OUT CONDITIONALS_NEGATION at dcb/dcb.go:321:19
+      KILLED CONDITIONALS_NEGATION at dcb/read.go:140:17
+   TIMED OUT CONDITIONALS_NEGATION at dcb/read.go:84:10
       KILLED CONDITIONALS_NEGATION at dcb/read.go:139:10
  NOT COVERED CONDITIONALS_NEGATION at dcb/read.go:190:18
-      KILLED CONDITIONALS_NEGATION at dcb/read.go:84:10
-      KILLED CONDITIONALS_NEGATION at dcb/read.go:149:11
-      KILLED CONDITIONALS_NEGATION at dcb/read.go:109:18
       KILLED CONDITIONALS_BOUNDARY at dcb/read.go:172:14
+      KILLED CONDITIONALS_NEGATION at dcb/read.go:186:18
+   TIMED OUT CONDITIONALS_NEGATION at dcb/read.go:109:18
+      KILLED CONDITIONALS_NEGATION at dcb/read.go:149:11
       KILLED CONDITIONALS_NEGATION at dcb/read.go:172:14
       KILLED CONDITIONALS_NEGATION at dcb/read.go:189:11
       KILLED INCREMENT_DECREMENT at dcb/read.go:212:13
  NOT COVERED CONDITIONALS_NEGATION at dcb/read.go:222:17
-      KILLED CONDITIONALS_NEGATION at dcb/read.go:186:60
+      KILLED CONDITIONALS_NEGATION at dcb/read.go:238:9
  NOT COVERED CONDITIONALS_NEGATION at dcb/read.go:239:16
-      KILLED CONDITIONALS_NEGATION at dcb/read.go:203:10
+      KILLED CONDITIONALS_NEGATION at dcb/read.go:186:60
  NOT COVERED CONDITIONALS_NEGATION at dcb/read.go:246:16
  NOT COVERED CONDITIONALS_NEGATION at dcb/read.go:255:16
-      KILLED CONDITIONALS_BOUNDARY at dcb/read.go:215:35
+      KILLED CONDITIONALS_NEGATION at dcb/read.go:203:10
  NOT COVERED CONDITIONALS_NEGATION at dcb/read.go:266:17
  NOT COVERED CONDITIONALS_NEGATION at dcb/read.go:281:16
-      KILLED CONDITIONALS_NEGATION at dcb/read.go:238:9
       KILLED CONDITIONALS_BOUNDARY at dcb/read.go:215:17
+      KILLED CONDITIONALS_BOUNDARY at dcb/read.go:215:35
  NOT COVERED CONDITIONALS_NEGATION at dcb/read.go:318:19
-      KILLED CONDITIONALS_NEGATION at dcb/read.go:215:35
-      KILLED CONDITIONALS_NEGATION at dcb/read.go:221:10
-      KILLED CONDITIONALS_NEGATION at dcb/read.go:215:17
-      KILLED CONDITIONALS_NEGATION at dcb/read.go:294:28
-      KILLED CONDITIONALS_NEGATION at dcb/read.go:263:19
-      KILLED CONDITIONALS_NEGATION at dcb/read.go:326:12
       KILLED CONDITIONALS_NEGATION at dcb/read.go:317:12
-      KILLED CONDITIONALS_NEGATION at dcb/read.go:329:22
-      KILLED CONDITIONALS_NEGATION at dcb/read.go:245:21
+      KILLED CONDITIONALS_NEGATION at dcb/read.go:215:35
+      KILLED CONDITIONALS_NEGATION at dcb/read.go:215:17
+      KILLED CONDITIONALS_NEGATION at dcb/read.go:326:12
+      KILLED CONDITIONALS_NEGATION at dcb/read.go:263:19
+      KILLED CONDITIONALS_NEGATION at dcb/read.go:294:28
       KILLED CONDITIONALS_NEGATION at dcb/read.go:344:12
-      KILLED INVERT_NEGATIVES at dcb/read.go:408:15
-      KILLED ARITHMETIC_BASE at dcb/read.go:408:15
-       LIVED INCREMENT_DECREMENT at dcb/read.go:351:15
-      KILLED CONDITIONALS_NEGATION at dcb/read.go:393:14
-      KILLED ARITHMETIC_BASE at dcb/test_helpers.go:28:81
-      KILLED CONDITIONALS_NEGATION at dcb/read.go:358:18
-      KILLED CONDITIONALS_NEGATION at dcb/read.go:392:9
-       LIVED CONDITIONALS_BOUNDARY at dcb/read.go:393:14
-      KILLED ARITHMETIC_BASE at dcb/read.go:409:16
-       LIVED CONDITIONALS_BOUNDARY at dcb/read.go:396:20
-      KILLED INVERT_NEGATIVES at dcb/read.go:409:16
-       LIVED CONDITIONALS_NEGATION at dcb/read.go:396:20
-      KILLED INVERT_NEGATIVES at dcb/test_helpers.go:71:45
-      KILLED ARITHMETIC_BASE at dcb/test_helpers.go:71:45
-      KILLED CONDITIONALS_NEGATION at dcb/test_helpers.go:76:7
-      KILLED CONDITIONALS_NEGATION at dcb/test_helpers.go:93:16
+      KILLED CONDITIONALS_NEGATION at dcb/read.go:221:10
+      KILLED CONDITIONALS_NEGATION at dcb/read.go:245:21
+      KILLED INVERT_NEGATIVES at dcb/read.go:405:15
+      KILLED CONDITIONALS_NEGATION at dcb/read.go:329:22
       KILLED CONDITIONALS_NEGATION at event.go:42:9
-      KILLED CONDITIONALS_NEGATION at dcb/test_helpers.go:76:24
+      KILLED CONDITIONALS_NEGATION at query.go:43:20
  NOT COVERED CONDITIONALS_NEGATION at view.go:32:25
  NOT COVERED CONDITIONALS_NEGATION at view.go:42:10
  NOT COVERED CONDITIONALS_NEGATION at view.go:47:16
  NOT COVERED CONDITIONALS_NEGATION at view.go:53:10
-      KILLED CONDITIONALS_NEGATION at dcb/test_helpers.go:94:55
-      KILLED CONDITIONALS_NEGATION at query.go:43:20
+      KILLED ARITHMETIC_BASE at dcb/read.go:405:15
       KILLED CONDITIONALS_NEGATION at view.go:94:58
-       LIVED CONDITIONALS_BOUNDARY at dcb/test_helpers.go:94:55
-      KILLED INVERT_NEGATIVES at dcb/test_helpers.go:94:41
-      KILLED ARITHMETIC_BASE at dcb/test_helpers.go:94:41
-      KILLED CONDITIONALS_BOUNDARY at dcb/test_helpers.go:93:16
-      KILLED INCREMENT_DECREMENT at dcb/test_helpers.go:93:32
+      KILLED ARITHMETIC_BASE at dcb/read.go:406:16
+      KILLED INVERT_NEGATIVES at dcb/read.go:406:16
+       LIVED INCREMENT_DECREMENT at dcb/read.go:351:15
+      KILLED CONDITIONALS_NEGATION at dcb/read.go:358:18
+      KILLED CONDITIONALS_NEGATION at dcb/read.go:393:13
+       LIVED CONDITIONALS_BOUNDARY at dcb/read.go:393:13
 
-Mutation testing completed in 6 minutes 44 seconds
-Killed: 79, Lived: 14, Not covered: 49
-Timed out: 19, Not viable: 0, Skipped: 0
-Test efficacy: 84.95%
-Mutator coverage: 65.49%
+Mutation testing completed in 5 minutes 19 seconds
+Killed: 72, Lived: 6, Not covered: 14
+Timed out: 14, Not viable: 0, Skipped: 0
+Test efficacy: 92.31%
+Mutator coverage: 84.78%
