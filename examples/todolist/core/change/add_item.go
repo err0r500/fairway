@@ -16,11 +16,13 @@ func init() {
 
 var itemAlreadyExistsErr = errors.New("item already exists")
 
+type addItemHttpReq struct {
+	Text string `json:"text" validate:"required"`
+}
+
 func addItemHttpHandler(runner fairway.CommandRunner) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req struct {
-			Text string `json:"text" validate:"required"`
-		}
+		var req addItemHttpReq
 		if !fairway.JsonParse(w, r, &req) {
 			return
 		}
@@ -56,11 +58,11 @@ func (cmd addItem) Run(ctx context.Context, ev fairway.EventReadAppender) error 
 
 	if err := ev.ReadEvents(ctx,
 		fairway.QueryItems(
-			fairway.NewQueryItem().Types(event.TodoItemAdded{}).Tags("item_id:"+cmd.itemId),
+			fairway.NewQueryItem().Types(event.ListItemAdded{}).Tags("item_id:"+cmd.itemId),
 		),
-		func(te fairway.TaggedEvent, err error) bool {
+		func(te fairway.TaggedEvent, _ error) bool {
 			switch te.Event.(type) {
-			case event.TodoItemAdded:
+			case event.ListItemAdded:
 				itemAlreadyExists = true
 				return false
 			default:
@@ -71,12 +73,12 @@ func (cmd addItem) Run(ctx context.Context, ev fairway.EventReadAppender) error 
 	}
 
 	if itemAlreadyExists {
-		return itemAlreadyExistsErr
+		return listAlreadyExistsErr
 	}
 
 	return ev.AppendEvents(ctx,
 		fairway.Event(
-			event.TodoItemAdded{ListId: cmd.listId, ItemId: cmd.itemId, Text: cmd.text},
+			event.ListItemAdded{ListId: cmd.listId, ItemId: cmd.itemId, Text: cmd.text},
 			"list_id:"+cmd.listId,
 			"item_id:"+cmd.itemId,
 		))
