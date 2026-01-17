@@ -64,13 +64,13 @@ type QueryItem struct {
 }
 
 // hasTypesOnly returns true if query has types but no tags
-func (q QueryItem) hasTypesOnly() bool {
-	return len(q.Types) > 0 && len(q.Tags) == 0
+func (q QueryItem) hasNoTypeNorTags() bool {
+	return len(q.Types) == 0 && len(q.Tags) == 0
 }
 
-// hasTagsOnly returns true if query has tags but no types
-func (q QueryItem) hasTagsOnly() bool {
-	return len(q.Tags) > 0 && len(q.Types) == 0
+// hasTypesOnly returns true if query has types but no tags
+func (q QueryItem) hasTypesOnly() bool {
+	return len(q.Types) > 0 && len(q.Tags) == 0
 }
 
 // hasTypesAndTags returns true if query has both types and tags
@@ -186,9 +186,6 @@ func (s fdbStore) discoverTypesInTagSubspace(tr fdb.ReadTransaction, eventsSubsp
 		if err != nil {
 			return nil, err
 		}
-		if len(keyTuple) < 2 {
-			continue
-		}
 
 		eventType, ok := keyTuple[len(keyTuple)-2].(string)
 		if !ok {
@@ -208,7 +205,7 @@ func (s fdbStore) discoverTypesInTagSubspace(tr fdb.ReadTransaction, eventsSubsp
 // For tags queries: returns one range per type (streaming via k-way merge)
 func (s fdbStore) buildQueryRanges(tr fdb.ReadTransaction, item QueryItem, after *Versionstamp) ([]fdb.Range, error) {
 	// Validate: must have at least one type or tag
-	if !item.hasTypesOnly() && !item.hasTagsOnly() && !item.hasTypesAndTags() {
+	if item.hasNoTypeNorTags() {
 		return nil, ErrInvalidQuery
 	}
 

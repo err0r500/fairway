@@ -126,21 +126,19 @@ func (s fdbStore) appendSingle(tr fdb.Transaction, event Event, batchIndex uint1
 
 	// 3. Write to tag tree (all subsets with alphabetical ordering)
 	// Only write tag indexes if event has tags
-	if len(event.Tags) > 0 {
-		subsets := generateAllSubsets(event.Tags)
-		for _, subset := range subsets {
-			tagPath := make(tuple.Tuple, 0, len(subset)+3)
-			for _, tag := range subset {
-				tagPath = append(tagPath, tag)
-			}
-			tagPath = append(tagPath, eventsInTagSubspace, event.Type, vs)
-
-			tagKey, err := s.byTag.PackWithVersionstamp(tagPath)
-			if err != nil {
-				return err
-			}
-			tr.SetVersionstampedKey(tagKey, nil)
+	subsets := generateAllSubsets(event.Tags)
+	for _, subset := range subsets {
+		tagPath := make(tuple.Tuple, 0, len(subset)+3)
+		for _, tag := range subset {
+			tagPath = append(tagPath, tag)
 		}
+		tagPath = append(tagPath, eventsInTagSubspace, event.Type, vs)
+
+		tagKey, err := s.byTag.PackWithVersionstamp(tagPath)
+		if err != nil {
+			return err
+		}
+		tr.SetVersionstampedKey(tagKey, nil)
 	}
 
 	return nil

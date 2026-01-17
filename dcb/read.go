@@ -388,12 +388,9 @@ type vsHeap []heapItem
 func (h vsHeap) Len() int { return len(h) }
 
 func (h vsHeap) Less(i, j int) bool {
-	cmp := h[i].iter.currentVS.Compare(h[j].iter.currentVS)
-	if cmp != 0 {
-		return cmp < 0
-	}
 	// Stable sort: if versionstamps equal, use original index
-	return h[i].index < h[j].index
+	cmp := h[i].iter.currentVS.Compare(h[j].iter.currentVS)
+	return cmp <= 0
 }
 
 func (h vsHeap) Swap(i, j int) { h[i], h[j] = h[j], h[i] }
