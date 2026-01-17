@@ -1,5 +1,8 @@
-# Fairway
+<p align="center">
+  <img src="./fairway.png">
+</p>
 
+# Fairway
 Golang framework for building micromodule systems using eventsourcing with [Dynamic Consistency Boundaries](https://dcb.events), and [FoundationDB](https://www.foundationdb.org).
 
 ## What Fairway provides
