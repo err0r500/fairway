@@ -58,7 +58,7 @@ func (cmd createList) Run(ctx context.Context, ev fairway.EventReadAppender) err
 
 	if err := ev.ReadEvents(ctx,
 		fairway.QueryItems(
-			fairway.NewQueryItem().Types(event.ListCreated{}).Tags("list_id:"+cmd.listId),
+			fairway.NewQueryItem().Types(event.ListCreated{}).Tags(event.TagListId(cmd.listId)),
 		),
 		func(te fairway.TaggedEvent, _ error) bool {
 			switch te.Event.(type) {
@@ -79,6 +79,6 @@ func (cmd createList) Run(ctx context.Context, ev fairway.EventReadAppender) err
 	return ev.AppendEvents(ctx,
 		fairway.Event(
 			event.ListCreated{ListId: cmd.listId, Name: cmd.name},
-			"list_id:"+cmd.listId,
+			event.TagListId(cmd.listId),
 		))
 }

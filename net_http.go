@@ -41,30 +41,38 @@ func (registry HttpChangeRegistry) RegisteredRoutes() []string {
 	return result
 }
 
-// type HttpViewRegistry struct {
-// 	registeredReadModels []viewRegistration
-// }
-//
-// // viewRegistration represents a query route registration
-// type viewRegistration struct {
-// 	Pattern string
-// 	Handler func(*Client) http.HandlerFunc
-// }
-//
-// // RegisterQuery registers a query handler factory
-// func (registry *HttpViewRegistry) RegisterReadModel(pattern string, handler func(*Client) http.HandlerFunc) {
-// 	registry.registeredReadModels = append(registry.registeredReadModels, viewRegistration{
-// 		Pattern: pattern,
-// 		Handler: handler,
-// 	})
-// }
-//
-// // RegisterRoutes registers all query routes to the mux
-// func (registry HttpViewRegistry) RegisterRoutes(mux *http.ServeMux, client *Client) {
-// 	for _, reg := range registry.registeredReadModels {
-// 		mux.HandleFunc(reg.Pattern, reg.Handler(client))
-// 	}
-// }
+type HttpViewRegistry struct {
+	registeredReadModels []viewRegistration
+}
+
+// viewRegistration represents a query route registration
+type viewRegistration struct {
+	Pattern string
+	Handler func(EventsReader) http.HandlerFunc
+}
+
+// RegisterQuery registers a query handler factory
+func (registry *HttpViewRegistry) RegisterReadModel(pattern string, handler func(EventsReader) http.HandlerFunc) {
+	registry.registeredReadModels = append(registry.registeredReadModels, viewRegistration{
+		Pattern: pattern,
+		Handler: handler,
+	})
+}
+
+// RegisterRoutes registers all query routes to the mux
+func (registry HttpViewRegistry) RegisterRoutes(mux *http.ServeMux, client EventsReader) {
+	for _, reg := range registry.registeredReadModels {
+		mux.HandleFunc(reg.Pattern, reg.Handler(client))
+	}
+}
+
+func (registry HttpViewRegistry) RegisteredRoutes() []string {
+	result := []string{}
+	for _, c := range registry.registeredReadModels {
+		result = append(result, c.Pattern)
+	}
+	return result
+}
 
 // TODO : this function does too much, should return errors and
 // let the client handle them

@@ -59,11 +59,13 @@ func (cmd addItem) Run(ctx context.Context, ev fairway.EventReadAppender) error 
 
 	if err := ev.ReadEvents(ctx,
 		fairway.QueryItems(
-			fairway.NewQueryItem().Types(event.ListItemAdded{}).Tags("item_id:"+cmd.itemId),
+			fairway.NewQueryItem().
+				Types(event.ItemAdded{}).
+				Tags(event.TagItemId(cmd.itemId)),
 		),
 		func(te fairway.TaggedEvent, _ error) bool {
 			switch te.Event.(type) {
-			case event.ListItemAdded:
+			case event.ItemAdded:
 				itemAlreadyExists = true
 				return false
 			default:
@@ -79,8 +81,8 @@ func (cmd addItem) Run(ctx context.Context, ev fairway.EventReadAppender) error 
 
 	return ev.AppendEvents(ctx,
 		fairway.Event(
-			event.ListItemAdded{ListId: cmd.listId, ItemId: cmd.itemId, Text: cmd.text},
-			"list_id:"+cmd.listId,
-			"item_id:"+cmd.itemId,
+			event.ItemAdded{ListId: cmd.listId, ItemId: cmd.itemId, Text: cmd.text},
+			event.TagListId(cmd.listId),
+			event.TagItemId(cmd.itemId),
 		))
 }
