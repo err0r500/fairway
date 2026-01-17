@@ -7,11 +7,12 @@ import (
 	"net/http"
 
 	"github.com/err0r500/fairway"
+	"github.com/err0r500/fairway/examples/todolist/core/change"
 	"github.com/err0r500/fairway/examples/todolist/core/event"
 )
 
 func init() {
-	ChangeRegistry.RegisterCommand("POST /api/lists/{listId}/items/{itemId}", addItemHttpHandler)
+	change.ChangeRegistry.RegisterCommand("POST /api/lists/{listId}/items/{itemId}", addItemHttpHandler)
 }
 
 var itemAlreadyExistsErr = errors.New("item already exists")

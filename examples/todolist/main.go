@@ -1,3 +1,5 @@
+//go:generate go run github.com/err0r500/fairway/cmd
+
 package main
 
 import (
@@ -30,6 +32,9 @@ func main() {
 	// view.ViewRegistry.RegisterRoutes(mux, client)
 
 	// Start server
+	for _, route := range change.ChangeRegistry.RegisteredRoutes() {
+		slog.Info("Registered route: " + route)
+	}
 	logger.Info("Server starting on :8080")
 	log.Fatal(http.ListenAndServe(":8080", mux))
 }

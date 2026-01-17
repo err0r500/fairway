@@ -33,6 +33,14 @@ func (registry HttpChangeRegistry) RegisterRoutes(mux *http.ServeMux, runner Com
 	}
 }
 
+func (registry HttpChangeRegistry) RegisteredRoutes() []string {
+	result := []string{}
+	for _, c := range registry.registeredCommands {
+		result = append(result, c.Pattern)
+	}
+	return result
+}
+
 // type HttpViewRegistry struct {
 // 	registeredReadModels []viewRegistration
 // }
