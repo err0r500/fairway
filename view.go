@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"reflect"
 
 	"github.com/err0r500/fairway/dcb"
 )
 
 type EventsReader interface {
-	ReadEvents(ctx context.Context, eventHandler *EventHandler) error
+	ReadEvents(ctx context.Context, query Query, handler HandlerFunc) error
 }
 
 // commandReadAppender provides read-then-conditional-append for commands
@@ -28,17 +29,17 @@ func NewReader(store dcb.DcbStore) EventsReader {
 }
 
 // ReadEvents reads events using the eventHandler's query and dispatches to handlers
-func (ra viewReader) ReadEvents(ctx context.Context, eventHandler *EventHandler) error {
-	if eventHandler.handle == nil {
+func (ra viewReader) ReadEvents(ctx context.Context, query Query, handler HandlerFunc) error {
+	if handler == nil {
 		return nil
 	}
 
 	// Auto-register types from query
-	for _, item := range eventHandler.query.items {
+	for _, item := range query.items {
 		ra.eventRegistry.registerTypes(item.typeRegistry)
 	}
 
-	for dcbStoredEvent, err := range ra.store.Read(ctx, *eventHandler.query.toDcb(), nil) {
+	for dcbStoredEvent, err := range ra.store.Read(ctx, *query.toDcb(), nil) {
 		if err != nil {
 			return err
 		}
@@ -55,7 +56,7 @@ func (ra viewReader) ReadEvents(ctx context.Context, eventHandler *EventHandler)
 		}
 
 		// Dispatch TaggedEvent to handler
-		if !eventHandler.handle(TaggedEvent{Event: fairwayEvent, Tags: dcbStoredEvent.Tags}, nil) {
+		if !handler(TaggedEvent{Event: fairwayEvent, Tags: dcbStoredEvent.Tags}, nil) {
 			return nil
 		}
 	}
@@ -75,9 +76,7 @@ func newEventRegistry() eventRegistry {
 
 // registerTypes registers event types from a type registry map
 func (r *eventRegistry) registerTypes(types map[string]reflect.Type) {
-	for typeName, typ := range types {
-		r.types[typeName] = typ
-	}
+	maps.Copy(r.types, types)
 }
 
 // deserialize converts dcb.Event to typed event
@@ -97,5 +96,3 @@ func (r eventRegistry) deserialize(de dcb.Event) (any, error) {
 
 	return ptr.Elem().Interface(), nil
 }
-
-

@@ -96,18 +96,18 @@ func newReadAppender(store dcb.DcbStore) EventReadAppender {
 }
 
 // ReadEvents reads events using the eventHandler's query and dispatches to handlers
-func (ra *commandReadAppender) ReadEvents(ctx context.Context, eventHandler *EventHandler) error {
-	if eventHandler.handle == nil {
+func (ra *commandReadAppender) ReadEvents(ctx context.Context, query Query, handler HandlerFunc) error {
+	if handler == nil {
 		return nil
 	}
 
 	// Auto-register types from query
-	for _, item := range eventHandler.query.items {
+	for _, item := range query.items {
 		ra.eventRegistry.registerTypes(item.typeRegistry)
 	}
 
 	// Convert fairway Query to dcb Query
-	ra.query = eventHandler.query.toDcb()
+	ra.query = query.toDcb()
 
 	for dcbStoredEvent, err := range ra.store.Read(ctx, *ra.query, nil) {
 		if err != nil {
@@ -129,7 +129,7 @@ func (ra *commandReadAppender) ReadEvents(ctx context.Context, eventHandler *Eve
 		}
 
 		// Dispatch TaggedEvent to handler
-		if !eventHandler.handle(TaggedEvent{Event: fairwayEvent, Tags: dcbStoredEvent.Tags}, nil) {
+		if !handler(TaggedEvent{Event: fairwayEvent, Tags: dcbStoredEvent.Tags}, nil) {
 			return nil
 		}
 	}
