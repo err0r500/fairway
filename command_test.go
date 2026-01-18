@@ -436,7 +436,7 @@ func TestDifferentDependencyTypes(t *testing.T) {
 func TestCancelledContextDuringRead(t *testing.T) {
 	store := &mockStore{
 		ReadEvents: []dcb.StoredEvent{
-			{Event: dcb.Event{Type: "TestEventA", Data: []byte(`{"Value":"test"}`)}, Position: dcb.Versionstamp{}},
+			{Type: "TestEventA", Data: []byte(`{"Value":"test"}`), Position: dcb.Versionstamp{}},
 		},
 	}
 	runner := fairway.NewCommandRunner(store)
@@ -633,8 +633,8 @@ func TestReadAppendReadAppend(t *testing.T) {
 
 	store := &mockStore{
 		ReadEvents: []dcb.StoredEvent{
-			{Event: dcb.Event{Type: "TestEventA", Data: []byte(`{"Value":"a"}`)}, Position: vs1},
-			{Event: dcb.Event{Type: "TestEventB", Data: []byte(`{"Count":1}`)}, Position: vs2},
+			{Type: "TestEventA", Data: []byte(`{"Value":"a"}`), Position: vs1},
+			{Type: "TestEventB", Data: []byte(`{"Count":1}`), Position: vs2},
 		},
 	}
 

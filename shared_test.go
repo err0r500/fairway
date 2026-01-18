@@ -116,11 +116,8 @@ func storedEventGen() *rapid.Generator[dcb.StoredEvent] {
 		data, _ := json.Marshal(event)
 
 		return dcb.StoredEvent{
-			Event: dcb.Event{
-				Type: typeName,
-				Tags: RandomTags(t),
-				Data: data,
-			},
+			Type:     typeName,
+			Data:     data,
 			Position: RandomVersionstamp(t),
 		}
 	})

@@ -122,8 +122,11 @@ func (ra *commandReadAppender) ReadEvents(ctx context.Context, query Query, hand
 		// Track last versionstamp
 		ra.lastSeenVersionstamp = &dcbStoredEvent.Position
 
-		// Deserialize dcb.Event → event
-		fairwayEvent, err := ra.eventRegistry.deserialize(dcbStoredEvent.Event)
+		// Deserialize dcb.StoredEvent → event
+		fairwayEvent, err := ra.eventRegistry.deserialize(dcb.Event{
+			Type: dcbStoredEvent.Type,
+			Data: dcbStoredEvent.Data,
+		})
 		if err != nil {
 			return err
 		}

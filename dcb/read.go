@@ -119,7 +119,7 @@ func (s fdbStore) fetchEvent(ctx context.Context, tr fdb.ReadTransaction, vs Ver
 		return StoredEvent{}, err
 	}
 
-	return StoredEvent{Event: *event, Position: vs}, nil
+	return StoredEvent{Type: event.Type, Data: event.Data, Position: vs}, nil
 }
 
 // readEvents reads events from the transaction using k-way merge for streaming.
@@ -324,12 +324,12 @@ func (s fdbStore) ReadAll(ctx context.Context) iter.Seq2[StoredEvent, error] {
 				binary.BigEndian.PutUint16(vs[10:12], tupleVs.UserVersion)
 
 				// Decode event
-				storedEvent, err := decodeEvent(ctx, kv.Value)
+				event, err := decodeEvent(ctx, kv.Value)
 				if err != nil {
 					return nil, err
 				}
 
-				if !yield(StoredEvent{Event: *storedEvent, Position: vs}, nil) {
+				if !yield(StoredEvent{Type: event.Type, Data: event.Data, Position: vs}, nil) {
 					return nil, nil
 				}
 				eventCount++
