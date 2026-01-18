@@ -146,7 +146,7 @@ func (ra *commandReadAppender) AppendEvents(ctx context.Context, events ...Tagge
 	// Serialize TaggedEvent → dcb.Event
 	dcbEvents := make([]dcb.Event, len(events))
 	for i, taggedEvt := range events {
-		dcbEvent, err := toDcbEvent(taggedEvt)
+		dcbEvent, err := ToDcbEvent(taggedEvt)
 		if err != nil {
 			return err
 		}

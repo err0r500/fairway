@@ -13,10 +13,10 @@ import (
 	"github.com/err0r500/fairway/dcb"
 	"github.com/err0r500/fairway/examples/todolist/core/change/createlist"
 	"github.com/err0r500/fairway/examples/todolist/core/event"
+	"github.com/err0r500/fairway/testing/given"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
 
 func TestCreateList_Success(t *testing.T) {
 	t.Parallel()
@@ -51,19 +51,18 @@ func TestCreateList_Conflict(t *testing.T) {
 	store, server := setup(t)
 	defer server.Close()
 
-	existingEvent := event.ListCreated{ListId: "list-1", Name: "Existing"}
-	data, err := json.Marshal(existingEvent)
-	require.NoError(t, err)
-	err = store.Append(t.Context(), []dcb.Event{{
-		Type: "ListCreated",
-		Tags: []string{event.TagListId("list-1")},
-		Data: data,
-	}}, nil)
+	listId := "list-1"
+	err := given.EventsInStore(store,
+		fairway.Event(
+			event.ListCreated{ListId: listId, Name: "Existing"},
+			event.TagListId(listId),
+		),
+	)
 	require.NoError(t, err)
 
 	// When - POST to create duplicate
 	body := `{"name":"Another List"}`
-	resp, err := http.Post(server.URL+"/api/lists/list-1", "application/json", strings.NewReader(body))
+	resp, err := http.Post(server.URL+"/api/lists/"+listId, "application/json", strings.NewReader(body))
 	require.NoError(t, err)
 	defer resp.Body.Close()
 
@@ -74,7 +73,7 @@ func TestCreateList_Conflict(t *testing.T) {
 	events := dcb.CollectEvents(t, store.Read(t.Context(),
 		dcb.Query{Items: []dcb.QueryItem{{
 			Types: []string{"ListCreated"},
-			Tags:  []string{event.TagListId("list-1")},
+			Tags:  []string{event.TagListId(listId)},
 		}}}, nil))
 	assert.Len(t, events, 1)
 }
