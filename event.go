@@ -8,23 +8,24 @@ import (
 	"github.com/err0r500/fairway/dcb"
 )
 
-// Tagger is an interface for events that can provide tags for indexing.
-// Tags are derived from the event's internal data and used for querying,
+// Event is the required interface for all events.
+// Tags are derived from the event's internal data and used for querying/indexing,
 // but are not stored as part of the event payload.
-type Tagger interface {
+type Event interface {
 	Tags() []string
 }
 
-// Typer is anything that can provide an event type string
+// Typer is an optional interface for events that want to override their type name.
+// If not implemented, the type name is derived from reflection.
 type Typer interface {
 	TypeString() string
 }
 
 // resolveEventTypeName determines the event type name for an event instance.
 //
-//  1. If the event implements Typer interface, use EventType() method
+//  1. If the event implements Typer interface, use TypeString() method
 //  2. Otherwise, fall back to the struct's type name via reflection
-func resolveEventTypeName(event any) string {
+func resolveEventTypeName(event Event) string {
 	if typer, ok := event.(Typer); ok {
 		return typer.TypeString()
 	}
@@ -32,16 +33,8 @@ func resolveEventTypeName(event any) string {
 	return reflect.TypeOf(event).Name()
 }
 
-// extractTags extracts tags from an event if it implements the Tagger interface
-func extractTags(event any) []string {
-	if tagger, ok := event.(Tagger); ok {
-		return tagger.Tags()
-	}
-	return nil
-}
-
 // ToDcbEvent serializes events using JSON and extracts tags for indexing
-func ToDcbEvent(event any) (dcb.Event, error) {
+func ToDcbEvent(event Event) (dcb.Event, error) {
 	data, err := json.Marshal(event)
 	if err != nil {
 		return dcb.Event{}, fmt.Errorf("failed to serialize event: %w", err)
@@ -50,6 +43,6 @@ func ToDcbEvent(event any) (dcb.Event, error) {
 	return dcb.Event{
 		Type: resolveEventTypeName(event),
 		Data: data,
-		Tags: extractTags(event),
+		Tags: event.Tags(),
 	}, nil
 }

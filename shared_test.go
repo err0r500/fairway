@@ -3,6 +3,7 @@ package fairway_test
 import (
 	"encoding/json"
 
+	"github.com/err0r500/fairway"
 	"github.com/err0r500/fairway/dcb"
 	"pgregory.net/rapid"
 )
@@ -19,11 +20,11 @@ var possibleTags = []string{
 // PUBLIC HELPERS (using generators)
 // ============================================================================
 
-func RandomEvent(t *rapid.T) any {
+func RandomEvent(t *rapid.T) fairway.Event {
 	return eventGen().Draw(t, "event")
 }
 
-func RandomEvents(t *rapid.T, maxCount int) []any {
+func RandomEvents(t *rapid.T, maxCount int) []fairway.Event {
 	return eventsGen(maxCount).Draw(t, "events")
 }
 
@@ -51,8 +52,8 @@ func RandomStoredEventsMin(t *rapid.T, minCount, maxCount int) []dcb.StoredEvent
 // GENERATORS
 // ============================================================================
 
-func eventGen() *rapid.Generator[any] {
-	return rapid.Custom(func(t *rapid.T) any {
+func eventGen() *rapid.Generator[fairway.Event] {
+	return rapid.Custom(func(t *rapid.T) fairway.Event {
 		eventType := rapid.IntRange(0, 2).Draw(t, "eventType")
 		switch eventType {
 		case 0:
@@ -65,7 +66,7 @@ func eventGen() *rapid.Generator[any] {
 	})
 }
 
-func eventsGen(maxCount int) *rapid.Generator[[]any] {
+func eventsGen(maxCount int) *rapid.Generator[[]fairway.Event] {
 	return rapid.SliceOfN(eventGen(), 1, maxCount)
 }
 

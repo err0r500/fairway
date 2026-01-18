@@ -753,7 +753,7 @@ type testCommand struct {
 	ShouldRead     bool
 	QueryTypes     []any
 	QueryTags      []string
-	EventsToAppend []any
+	EventsToAppend []fairway.Event
 	AppendTags     [][]string
 
 	// Observation hooks
@@ -805,7 +805,7 @@ func (cmd *testCommand) Run(ctx context.Context, ra fairway.EventReadAppender) e
 	cmd.AppendAttempted = true
 
 	// Build events
-	events := make([]any, len(cmd.EventsToAppend))
+	events := make([]fairway.Event, len(cmd.EventsToAppend))
 	for i, evt := range cmd.EventsToAppend {
 		if i < len(cmd.AppendTags) && len(cmd.AppendTags[i]) > 0 {
 			// Wrap event with tags
@@ -829,17 +829,23 @@ type TestEventA struct {
 	Value string
 }
 
+func (TestEventA) Tags() []string { return nil }
+
 type TestEventB struct {
 	Count int
 }
+
+func (TestEventB) Tags() []string { return nil }
 
 type TestEventC struct {
 	Flag bool
 }
 
+func (TestEventC) Tags() []string { return nil }
+
 // testEventWithTags wraps an event with tags for testing
 type testEventWithTags struct {
-	event any
+	event fairway.Event
 	tags  []string
 }
 
@@ -870,6 +876,8 @@ type CustomTypedEvent struct {
 func (CustomTypedEvent) TypeString() string {
 	return "custom-type-name"
 }
+
+func (CustomTypedEvent) Tags() []string { return nil }
 
 // Helper: command from function
 type commandFunc func(context.Context, fairway.EventReadAppender) error

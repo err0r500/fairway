@@ -74,7 +74,7 @@ func (cr *commandWithEffectRunner[Deps]) RunWithEffect(ctx context.Context, cmd 
 
 type EventReadAppender interface {
 	EventsReader
-	AppendEvents(ctx context.Context, events ...any) error
+	AppendEvents(ctx context.Context, events ...Event) error
 }
 
 // commandReadAppender provides read-then-conditional-append for commands
@@ -138,7 +138,7 @@ func (ra *commandReadAppender) ReadEvents(ctx context.Context, query Query, hand
 }
 
 // AppendEvents appends events with conditional check using tracked versionstamp
-func (ra *commandReadAppender) AppendEvents(ctx context.Context, events ...any) error {
+func (ra *commandReadAppender) AppendEvents(ctx context.Context, events ...Event) error {
 	if len(events) == 0 {
 		return nil
 	}
