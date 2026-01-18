@@ -20,7 +20,7 @@ type QueryItem struct {
 }
 
 // HandlerFunc processes an event. Return false to stop iteration.
-type HandlerFunc func(TaggedEvent, error) bool
+type HandlerFunc func(any, error) bool
 
 // convertQueryToDcb converts fairway.HandlerQuery to dcb.Query
 func (q Query) toDcb() *dcb.Query {

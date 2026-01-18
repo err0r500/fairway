@@ -55,8 +55,8 @@ func (ra viewReader) ReadEvents(ctx context.Context, query Query, handler Handle
 			return err
 		}
 
-		// Dispatch TaggedEvent to handler
-		if !handler(TaggedEvent{Event: fairwayEvent, Tags: dcbStoredEvent.Tags}, nil) {
+		// Dispatch event to handler
+		if !handler(fairwayEvent, nil) {
 			return nil
 		}
 	}

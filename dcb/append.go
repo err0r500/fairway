@@ -104,13 +104,9 @@ func (s fdbStore) appendSingle(tr fdb.Transaction, event Event, batchIndex uint1
 	// Create incomplete versionstamp
 	vs := tuple.IncompleteVersionstamp(batchIndex)
 
-	// 1. Write primary event storage (encode type, tags, and data together)
-	// Convert []string tags to tuple.Tuple for encoding
-	tagsTuple := make(tuple.Tuple, len(event.Tags))
-	for i, tag := range event.Tags {
-		tagsTuple[i] = tag
-	}
-	eventValue := tuple.Tuple{event.Type, tagsTuple, event.Data}.Pack()
+	// 1. Write primary event storage (encode type and data only)
+	// Tags are used for indexing but not stored in the event payload
+	eventValue := tuple.Tuple{event.Type, event.Data}.Pack()
 	eventKey, err := s.events.PackWithVersionstamp(tuple.Tuple{vs})
 	if err != nil {
 		return err

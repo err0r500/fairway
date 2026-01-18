@@ -8,15 +8,11 @@ import (
 	"github.com/err0r500/fairway/dcb"
 )
 
-// TaggedEvent wraps an event with optional tags
-type TaggedEvent struct {
-	Event any      // the actual event struct
-	Tags  []string // optional tags for categorization
-}
-
-// Event creates a TaggedEvent with tags
-func Event(event any, tags ...string) TaggedEvent {
-	return TaggedEvent{Event: event, Tags: tags}
+// Tagger is an interface for events that can provide tags for indexing.
+// Tags are derived from the event's internal data and used for querying,
+// but are not stored as part of the event payload.
+type Tagger interface {
+	Tags() []string
 }
 
 // Typer is anything that can provide an event type string
@@ -36,16 +32,24 @@ func resolveEventTypeName(event any) string {
 	return reflect.TypeOf(event).Name()
 }
 
-// ToDcbEvent serializes events using JSON
-func ToDcbEvent(e TaggedEvent) (dcb.Event, error) {
-	data, err := json.Marshal(e.Event)
+// extractTags extracts tags from an event if it implements the Tagger interface
+func extractTags(event any) []string {
+	if tagger, ok := event.(Tagger); ok {
+		return tagger.Tags()
+	}
+	return nil
+}
+
+// ToDcbEvent serializes events using JSON and extracts tags for indexing
+func ToDcbEvent(event any) (dcb.Event, error) {
+	data, err := json.Marshal(event)
 	if err != nil {
 		return dcb.Event{}, fmt.Errorf("failed to serialize event: %w", err)
 	}
 
 	return dcb.Event{
-		Type: resolveEventTypeName(e.Event),
+		Type: resolveEventTypeName(event),
 		Data: data,
-		Tags: e.Tags,
+		Tags: extractTags(event),
 	}, nil
 }

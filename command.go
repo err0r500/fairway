@@ -74,7 +74,7 @@ func (cr *commandWithEffectRunner[Deps]) RunWithEffect(ctx context.Context, cmd 
 
 type EventReadAppender interface {
 	EventsReader
-	AppendEvents(ctx context.Context, events ...TaggedEvent) error
+	AppendEvents(ctx context.Context, events ...any) error
 }
 
 // commandReadAppender provides read-then-conditional-append for commands
@@ -128,8 +128,8 @@ func (ra *commandReadAppender) ReadEvents(ctx context.Context, query Query, hand
 			return err
 		}
 
-		// Dispatch TaggedEvent to handler
-		if !handler(TaggedEvent{Event: fairwayEvent, Tags: dcbStoredEvent.Tags}, nil) {
+		// Dispatch event to handler
+		if !handler(fairwayEvent, nil) {
 			return nil
 		}
 	}
@@ -138,15 +138,15 @@ func (ra *commandReadAppender) ReadEvents(ctx context.Context, query Query, hand
 }
 
 // AppendEvents appends events with conditional check using tracked versionstamp
-func (ra *commandReadAppender) AppendEvents(ctx context.Context, events ...TaggedEvent) error {
+func (ra *commandReadAppender) AppendEvents(ctx context.Context, events ...any) error {
 	if len(events) == 0 {
 		return nil
 	}
 
-	// Serialize TaggedEvent → dcb.Event
+	// Serialize events → dcb.Event
 	dcbEvents := make([]dcb.Event, len(events))
-	for i, taggedEvt := range events {
-		dcbEvent, err := ToDcbEvent(taggedEvt)
+	for i, event := range events {
+		dcbEvent, err := ToDcbEvent(event)
 		if err != nil {
 			return err
 		}

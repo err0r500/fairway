@@ -31,10 +31,12 @@ type DcbStore interface {
 	ReadAll(ctx context.Context) iter.Seq2[StoredEvent, error]
 }
 
-// Event represents a single event in the event store
+// Event represents a single event in the event store.
+// Tags are used for indexing and querying but are not stored in the event payload.
+// Tags should be derived from the event data, not persisted.
 type Event struct {
 	Type string
-	Tags []string
+	Tags []string // Used for indexing only, not stored in event payload
 	Data []byte
 }
 

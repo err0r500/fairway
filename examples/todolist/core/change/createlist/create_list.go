@@ -66,8 +66,8 @@ func (cmd command) Run(ctx context.Context, ev fairway.EventReadAppender) error 
 				Types(event.ListCreated{}).
 				Tags(event.TagListId(cmd.listId)),
 		),
-		func(te fairway.TaggedEvent, _ error) bool {
-			switch te.Event.(type) {
+		func(e any, _ error) bool {
+			switch e.(type) {
 			case event.ListCreated:
 				listAlreadyExists = true
 				return false
@@ -83,8 +83,5 @@ func (cmd command) Run(ctx context.Context, ev fairway.EventReadAppender) error 
 	}
 
 	return ev.AppendEvents(ctx,
-		fairway.Event(
-			event.ListCreated{ListId: cmd.listId, Name: cmd.name},
-			event.TagListId(cmd.listId),
-		))
+		event.ListCreated{ListId: cmd.listId, Name: cmd.name})
 }

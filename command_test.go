@@ -2,7 +2,9 @@ package fairway_test
 
 import (
 	"context"
+	"encoding/json"
 	"iter"
+	"reflect"
 	"testing"
 
 	"github.com/err0r500/fairway"
@@ -87,7 +89,7 @@ func TestMultipleReads_LastVersionstampWins(tt *testing.T) {
 				fairway.QueryItems(
 					fairway.NewQueryItem().Types(TestEventA{}, TestEventB{}, TestEventC{}),
 				),
-				func(te fairway.TaggedEvent, err error) bool {
+				func(e any, err error) bool {
 					return true
 				}); err != nil {
 				return err
@@ -98,14 +100,14 @@ func TestMultipleReads_LastVersionstampWins(tt *testing.T) {
 				fairway.QueryItems(
 					fairway.NewQueryItem().Types(TestEventB{}),
 				),
-				func(te fairway.TaggedEvent, err error) bool {
+				func(e any, err error) bool {
 					return true
 				}); err != nil {
 				return err
 			}
 
 			// When - Append after multiple reads
-			return ra.AppendEvents(ctx, fairway.Event(RandomEvent(t)))
+			return ra.AppendEvents(ctx, RandomEvent(t))
 		}
 
 		cmdFunc := commandFunc(impl)
@@ -170,7 +172,7 @@ func TestHandlerStopsEarly_VersionstampFromLastYielded(tt *testing.T) {
 				fairway.QueryItems(
 					fairway.NewQueryItem().Types(TestEventA{}, TestEventB{}, TestEventC{}),
 				),
-				func(te fairway.TaggedEvent, err error) bool {
+				func(e any, err error) bool {
 					count++
 					return count < stopAfter // Stop early
 				}); err != nil {
@@ -178,7 +180,7 @@ func TestHandlerStopsEarly_VersionstampFromLastYielded(tt *testing.T) {
 			}
 
 			// When - Append after stopped iteration
-			return ra.AppendEvents(ctx, fairway.Event(RandomEvent(t)))
+			return ra.AppendEvents(ctx, RandomEvent(t))
 		}
 
 		cmdFunc := commandFunc(impl)
@@ -359,7 +361,7 @@ func TestRunWithEffect_PassesDependencies(t *testing.T) {
 	impl := func(cmd *EffectCommand) fairway.CommandWithEffect[Deps] {
 		return commandWithEffectFunc[Deps](func(ctx context.Context, ra fairway.EventReadAppender, deps Deps) error {
 			cmd.ReceivedDeps = &deps
-			return ra.AppendEvents(ctx, fairway.Event(TestEventA{Value: deps.Value}))
+			return ra.AppendEvents(ctx, TestEventA{Value: deps.Value})
 		})
 	}
 
@@ -557,13 +559,13 @@ func TestMultipleQueryItems_OR(t *testing.T) {
 				fairway.NewQueryItem().Types(TestEventA{}),
 				fairway.NewQueryItem().Types(TestEventB{}),
 			),
-			func(te fairway.TaggedEvent, err error) bool {
+			func(e any, err error) bool {
 				return true
 			}); err != nil {
 			return err
 		}
 
-		return ra.AppendEvents(ctx, fairway.Event(TestEventC{Flag: true}))
+		return ra.AppendEvents(ctx, TestEventC{Flag: true})
 	})
 
 	err := runner.RunPure(context.Background(), impl)
@@ -608,10 +610,10 @@ func TestMultipleAppends_InOneCommand(t *testing.T) {
 	runner := fairway.NewCommandRunner(store)
 
 	impl := commandFunc(func(ctx context.Context, ra fairway.EventReadAppender) error {
-		if err := ra.AppendEvents(ctx, fairway.Event(TestEventA{Value: "first"})); err != nil {
+		if err := ra.AppendEvents(ctx, TestEventA{Value: "first"}); err != nil {
 			return err
 		}
-		return ra.AppendEvents(ctx, fairway.Event(TestEventB{Count: 2}))
+		return ra.AppendEvents(ctx, TestEventB{Count: 2})
 	})
 
 	err := runner.RunPure(context.Background(), impl)
@@ -644,14 +646,14 @@ func TestReadAppendReadAppend(t *testing.T) {
 			fairway.QueryItems(
 				fairway.NewQueryItem().Types(TestEventA{}, TestEventB{}),
 			),
-			func(te fairway.TaggedEvent, err error) bool {
+			func(e any, err error) bool {
 				return true
 			}); err != nil {
 			return err
 		}
 
 		// First append
-		if err := ra.AppendEvents(ctx, fairway.Event(TestEventB{Count: 100})); err != nil {
+		if err := ra.AppendEvents(ctx, TestEventB{Count: 100}); err != nil {
 			return err
 		}
 
@@ -660,14 +662,14 @@ func TestReadAppendReadAppend(t *testing.T) {
 			fairway.QueryItems(
 				fairway.NewQueryItem().Types(TestEventB{}),
 			),
-			func(te fairway.TaggedEvent, err error) bool {
+			func(e any, err error) bool {
 				return true
 			}); err != nil {
 			return err
 		}
 
 		// Second append
-		return ra.AppendEvents(ctx, fairway.Event(TestEventC{Flag: true}))
+		return ra.AppendEvents(ctx, TestEventC{Flag: true})
 	})
 
 	err := runner.RunPure(context.Background(), impl)
@@ -755,7 +757,7 @@ type testCommand struct {
 	AppendTags     [][]string
 
 	// Observation hooks
-	OnRead         func(te fairway.TaggedEvent)
+	OnRead         func(e any)
 	OnBeforeAppend func()
 	OnAfterAppend  func(err error)
 
@@ -780,13 +782,13 @@ func (cmd *testCommand) Run(ctx context.Context, ra fairway.EventReadAppender) e
 		}
 
 		query := fairway.QueryItems(queryItems...)
-		handler := func(te fairway.TaggedEvent, err error) bool {
+		handler := func(e any, err error) bool {
 			if err != nil {
 				return false
 			}
 			cmd.ReadCount++
 			if cmd.OnRead != nil {
-				cmd.OnRead(te)
+				cmd.OnRead(e)
 			}
 			return true
 		}
@@ -803,13 +805,14 @@ func (cmd *testCommand) Run(ctx context.Context, ra fairway.EventReadAppender) e
 	cmd.AppendAttempted = true
 
 	// Build events
-	events := make([]fairway.TaggedEvent, len(cmd.EventsToAppend))
+	events := make([]any, len(cmd.EventsToAppend))
 	for i, evt := range cmd.EventsToAppend {
-		tags := []string{}
-		if i < len(cmd.AppendTags) {
-			tags = cmd.AppendTags[i]
+		if i < len(cmd.AppendTags) && len(cmd.AppendTags[i]) > 0 {
+			// Wrap event with tags
+			events[i] = &testEventWithTags{event: evt, tags: cmd.AppendTags[i]}
+		} else {
+			events[i] = evt
 		}
-		events[i] = fairway.Event(evt, tags...)
 	}
 
 	err := ra.AppendEvents(ctx, events...)
@@ -832,6 +835,31 @@ type TestEventB struct {
 
 type TestEventC struct {
 	Flag bool
+}
+
+// testEventWithTags wraps an event with tags for testing
+type testEventWithTags struct {
+	event any
+	tags  []string
+}
+
+func (e *testEventWithTags) Tags() []string {
+	return e.tags
+}
+
+// MarshalJSON marshals the inner event, not the wrapper
+func (e *testEventWithTags) MarshalJSON() ([]byte, error) {
+	return json.Marshal(e.event)
+}
+
+// TypeString returns the type name of the inner event
+func (e *testEventWithTags) TypeString() string {
+	// Check if inner event implements Typer
+	if typer, ok := e.event.(fairway.Typer); ok {
+		return typer.TypeString()
+	}
+	// Otherwise use reflection on inner event
+	return reflect.TypeOf(e.event).Name()
 }
 
 // Custom Typer for testing

@@ -233,7 +233,8 @@ func (s fdbStore) readEvents(
 }
 
 func decodeEvent(ctx context.Context, encodedValue []byte) (*Event, error) {
-	// Decode event (type, tags, data)
+	// Decode event (type, data)
+	// Tags are not stored, they are derived from event data
 	eventTuple, err := tuple.Unpack(encodedValue)
 	if err != nil {
 		if ctx.Err() != nil {
@@ -242,7 +243,7 @@ func decodeEvent(ctx context.Context, encodedValue []byte) (*Event, error) {
 		return nil, err
 	}
 
-	if len(eventTuple) != 3 {
+	if len(eventTuple) != 2 {
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
@@ -258,25 +259,8 @@ func decodeEvent(ctx context.Context, encodedValue []byte) (*Event, error) {
 		return nil, errors.New("invalid event type")
 	}
 
-	// Extract tags (comes as tuple.Tuple which is []interface{})
-	var tags []string
-	if eventTuple[1] != nil {
-		tagsTuple, ok := eventTuple[1].(tuple.Tuple)
-		if !ok {
-			if ctx.Err() != nil {
-				return nil, ctx.Err()
-			}
-			return nil, errors.New("invalid event tags")
-		}
-
-		tags = make([]string, len(tagsTuple))
-		for i, t := range tagsTuple {
-			tags[i] = t.(string)
-		}
-	}
-
 	// Extract data
-	eventData, ok := eventTuple[2].([]byte)
+	eventData, ok := eventTuple[1].([]byte)
 	if !ok {
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
@@ -284,7 +268,7 @@ func decodeEvent(ctx context.Context, encodedValue []byte) (*Event, error) {
 		return nil, errors.New("invalid event data")
 	}
 
-	return &Event{Type: eventType, Tags: tags, Data: eventData}, nil
+	return &Event{Type: eventType, Tags: nil, Data: eventData}, nil
 }
 
 // ReadAll returns all events in the store as an iterator sequence, ordered by versionstamp.
