@@ -12,23 +12,23 @@ import (
 )
 
 func init() {
-	change.ChangeRegistry.RegisterCommand("POST /api/lists/{listId}/items/{itemId}", addItemHttpHandler)
+	change.ChangeRegistry.RegisterCommand("POST /api/lists/{listId}/items/{itemId}", httpHandler)
 }
 
 var itemAlreadyExistsErr = errors.New("item already exists")
 
-type addItemHttpReq struct {
+type reqBody struct {
 	Text string `json:"text" validate:"required"`
 }
 
-func addItemHttpHandler(runner fairway.CommandRunner) http.HandlerFunc {
+func httpHandler(runner fairway.CommandRunner) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req addItemHttpReq
+		var req reqBody
 		if !fairway.JsonParse(w, r, &req) {
 			return
 		}
 
-		if err := runner.RunPure(r.Context(), addItem{
+		if err := runner.RunPure(r.Context(), command{
 			listId: r.PathValue("listId"),
 			itemId: r.PathValue("itemId"),
 			text:   req.Text,
@@ -48,13 +48,13 @@ func addItemHttpHandler(runner fairway.CommandRunner) http.HandlerFunc {
 	}
 }
 
-type addItem struct {
+type command struct {
 	listId string
 	itemId string
 	text   string
 }
 
-func (cmd addItem) Run(ctx context.Context, ev fairway.EventReadAppender) error {
+func (cmd command) Run(ctx context.Context, ev fairway.EventReadAppender) error {
 	itemAlreadyExists := false
 
 	if err := ev.ReadEvents(ctx,

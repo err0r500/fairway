@@ -10,18 +10,18 @@ import (
 )
 
 func init() {
-	view.ViewRegistry.RegisterReadModel("GET /api/lists/{listId}", addItemHttpHandler)
+	view.ViewRegistry.RegisterReadModel("GET /api/lists/{listId}", httpHandler)
 }
 
-type showList struct {
+type resp struct {
 	Id         string `json:"id"`
 	Name       string `json:"name"`
 	ItemsCount uint   `json:"itemsCount"`
 }
 
-func addItemHttpHandler(runner fairway.EventsReader) http.HandlerFunc {
+func httpHandler(runner fairway.EventsReader) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		list := showList{}
+		list := resp{}
 		if err := runner.ReadEvents(r.Context(),
 			fairway.QueryItems(
 				fairway.NewQueryItem().

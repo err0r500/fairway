@@ -36,8 +36,8 @@ func resolveEventTypeName(event any) string {
 	return reflect.TypeOf(event).Name()
 }
 
-// toDcbEvent serializes events using JSON
-func toDcbEvent(e TaggedEvent) (dcb.Event, error) {
+// ToDcbEvent serializes events using JSON
+func ToDcbEvent(e TaggedEvent) (dcb.Event, error) {
 	data, err := json.Marshal(e.Event)
 	if err != nil {
 		return dcb.Event{}, fmt.Errorf("failed to serialize event: %w", err)

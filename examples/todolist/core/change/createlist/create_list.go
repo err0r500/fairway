@@ -1,4 +1,4 @@
-package change
+package createlist
 
 import (
 	"context"
@@ -12,24 +12,28 @@ import (
 )
 
 func init() {
-	change.ChangeRegistry.RegisterCommand("POST /api/lists/{listId}", createListHttpHandler)
+	Register(&change.ChangeRegistry)
+}
+
+func Register(registry *fairway.HttpChangeRegistry) {
+	registry.RegisterCommand("POST /api/lists/{listId}", httpHandler)
 }
 
 var listAlreadyExistsErr = errors.New("list already exists")
 
-type createListHttpReq struct {
+type reqBody struct {
 	Name string `json:"name" validate:"required"`
 }
 
-// createListHttpHandler creates an HTTP handler for this command
-func createListHttpHandler(runner fairway.CommandRunner) http.HandlerFunc {
+// httpHandler creates an HTTP handler for this command
+func httpHandler(runner fairway.CommandRunner) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req createListHttpReq
+		var req reqBody
 		if !fairway.JsonParse(w, r, &req) {
 			return
 		}
 
-		if err := runner.RunPure(r.Context(), createList{
+		if err := runner.RunPure(r.Context(), command{
 			listId: r.PathValue("listId"),
 			name:   req.Name,
 		}); err != nil {
@@ -48,17 +52,19 @@ func createListHttpHandler(runner fairway.CommandRunner) http.HandlerFunc {
 	}
 }
 
-type createList struct {
+type command struct {
 	listId string
 	name   string
 }
 
-func (cmd createList) Run(ctx context.Context, ev fairway.EventReadAppender) error {
+func (cmd command) Run(ctx context.Context, ev fairway.EventReadAppender) error {
 	listAlreadyExists := false
 
 	if err := ev.ReadEvents(ctx,
 		fairway.QueryItems(
-			fairway.NewQueryItem().Types(event.ListCreated{}).Tags(event.TagListId(cmd.listId)),
+			fairway.NewQueryItem().
+				Types(event.ListCreated{}).
+				Tags(event.TagListId(cmd.listId)),
 		),
 		func(te fairway.TaggedEvent, _ error) bool {
 			switch te.Event.(type) {
