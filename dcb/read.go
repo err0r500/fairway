@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"iter"
 	"time"
 
@@ -111,12 +112,12 @@ func (s fdbStore) fetchEvent(ctx context.Context, tr fdb.ReadTransaction, vs Ver
 		if ctx.Err() != nil {
 			return StoredEvent{}, ctx.Err()
 		}
-		return StoredEvent{}, errors.New("event data not found")
+		return StoredEvent{}, fmt.Errorf("versionstamp %x: no data in events subspace", vs[:])
 	}
 
 	event, err := decodeEvent(ctx, encodedValue)
 	if err != nil {
-		return StoredEvent{}, err
+		return StoredEvent{}, fmt.Errorf("decoding event at versionstamp %x: %s", vs[:], err)
 	}
 
 	return StoredEvent{Event: *event, Position: vs}, nil
@@ -134,23 +135,23 @@ func (s fdbStore) readEvents(
 	// Build all ranges (buildQueryRanges now handles type discovery for tags-only)
 	var allIterators []*rangeIterator
 
-	for _, item := range query.Items {
+	for itemIdx, item := range query.Items {
 		ranges, err := s.buildQueryRanges(tr, item, after)
 		if err != nil {
 			if ctx.Err() != nil {
 				return 0, ctx.Err()
 			}
-			return 0, err
+			return 0, fmt.Errorf("building query ranges for item %d: %s", itemIdx, err)
 		}
 
 		// Create streaming iterator for each range
-		for _, r := range ranges {
+		for rangeIdx, r := range ranges {
 			ri, err := initRangeIterator(tr, r)
 			if err != nil {
 				if ctx.Err() != nil {
 					return 0, ctx.Err()
 				}
-				return 0, err
+				return 0, fmt.Errorf("initializing range iterator for item %d range %d: %s", itemIdx, rangeIdx, err)
 			}
 			if !ri.exhausted {
 				allIterators = append(allIterators, ri)
@@ -190,7 +191,7 @@ func (s fdbStore) readEvents(
 				if ctx.Err() != nil {
 					return eventCount, ctx.Err()
 				}
-				return eventCount, err
+				return eventCount, fmt.Errorf("advancing iterator: %s", err)
 			}
 			if advanced {
 				heap.Push(h, item)
@@ -222,7 +223,7 @@ func (s fdbStore) readEvents(
 			if ctx.Err() != nil {
 				return eventCount, ctx.Err()
 			}
-			return eventCount, err
+			return eventCount, fmt.Errorf("advancing iterator: %s", err)
 		}
 		if advanced {
 			heap.Push(h, item)
@@ -246,7 +247,7 @@ func decodeEvent(ctx context.Context, encodedValue []byte) (*Event, error) {
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
-		return nil, errors.New("invalid event encoding")
+		return nil, fmt.Errorf("expected 3-tuple, got %d elements", len(eventTuple))
 	}
 
 	// Extract type
@@ -255,7 +256,7 @@ func decodeEvent(ctx context.Context, encodedValue []byte) (*Event, error) {
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
-		return nil, errors.New("invalid event type")
+		return nil, fmt.Errorf("type field is %T, expected string", eventTuple[0])
 	}
 
 	// Extract tags (comes as tuple.Tuple which is []interface{})
@@ -266,7 +267,7 @@ func decodeEvent(ctx context.Context, encodedValue []byte) (*Event, error) {
 			if ctx.Err() != nil {
 				return nil, ctx.Err()
 			}
-			return nil, errors.New("invalid event tags")
+			return nil, fmt.Errorf("event type %q: tags field is %T, expected tuple", eventType, eventTuple[1])
 		}
 
 		tags = make([]string, len(tagsTuple))
@@ -281,7 +282,7 @@ func decodeEvent(ctx context.Context, encodedValue []byte) (*Event, error) {
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
-		return nil, errors.New("invalid event data")
+		return nil, fmt.Errorf("event type %q tags %v: data field is %T, expected []byte", eventType, tags, eventTuple[2])
 	}
 
 	return &Event{Type: eventType, Tags: tags, Data: eventData}, nil
@@ -318,13 +319,13 @@ func (s fdbStore) ReadAll(ctx context.Context) iter.Seq2[StoredEvent, error] {
 					if ctx.Err() != nil {
 						return nil, ctx.Err()
 					}
-					return nil, err
+					return nil, fmt.Errorf("reading event %d from events subspace: %s", eventCount, err)
 				}
 
 				// Extract versionstamp from key
 				keyTuple, err := s.events.Unpack(kv.Key)
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("unpacking event key at position %d: %s", eventCount, err)
 				}
 				if len(keyTuple) != 1 {
 					return nil, errors.New("invalid event key")
@@ -342,7 +343,7 @@ func (s fdbStore) ReadAll(ctx context.Context) iter.Seq2[StoredEvent, error] {
 				// Decode event
 				storedEvent, err := decodeEvent(ctx, kv.Value)
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("event %d at versionstamp %x: %s", eventCount, vs[:], err)
 				}
 
 				if !yield(StoredEvent{Event: *storedEvent, Position: vs}, nil) {

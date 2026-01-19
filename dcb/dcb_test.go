@@ -30,7 +30,7 @@ func TestReadEmptyQuery(tt *testing.T) {
 	}
 
 	// Then - fails with ErrInvalidQuery
-	assert.ErrorIs(tt, lastErr, dcb.ErrInvalidQuery)
+	assert.ErrorContains(tt, lastErr, dcb.ErrInvalidQuery.Error())
 }
 
 func TestReadQueryWithEmptyTypes(tt *testing.T) {

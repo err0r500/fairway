@@ -41,18 +41,17 @@ func (ra viewReader) ReadEvents(ctx context.Context, query Query, handler Handle
 
 	for dcbStoredEvent, err := range ra.store.Read(ctx, *query.toDcb(), nil) {
 		if err != nil {
-			return err
-		}
-
-		// Check context
-		if ctx.Err() != nil {
-			return ctx.Err()
+			// context errors already have context
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			return fmt.Errorf("reading events: %s", err)
 		}
 
 		// Deserialize dcb.Event → event
 		fairwayEvent, err := ra.eventRegistry.deserialize(dcbStoredEvent.Event)
 		if err != nil {
-			return err
+			return fmt.Errorf("deserializing event at position %x: %s", dcbStoredEvent.Position[:], err)
 		}
 
 		te, ok := fairwayEvent.(TaggedEvent);
@@ -61,7 +60,7 @@ func (ra viewReader) ReadEvents(ctx context.Context, query Query, handler Handle
 		}
 
 		// Dispatch TaggedEvent to handler
-		if !handler(te, nil) {
+		if !handler(te) {
 			return nil
 		}
 	}
@@ -84,11 +83,20 @@ func (r *eventRegistry) registerTypes(types map[string]reflect.Type) {
 	maps.Copy(r.types, types)
 }
 
+// registeredTypeNames returns list of registered type names for error context
+func (r eventRegistry) registeredTypeNames() []string {
+	names := make([]string, 0, len(r.types))
+	for name := range r.types {
+		names = append(names, name)
+	}
+	return names
+}
+
 // deserialize converts dcb.Event to typed event
 func (r eventRegistry) deserialize(de dcb.Event) (any, error) {
 	typ, ok := r.types[de.Type]
 	if !ok {
-		return nil, fmt.Errorf("unknown event type: %s", de.Type)
+		return nil, fmt.Errorf("unknown event type %q (registered: %v)", de.Type, r.registeredTypeNames())
 	}
 
 	// Create new instance
@@ -96,7 +104,7 @@ func (r eventRegistry) deserialize(de dcb.Event) (any, error) {
 
 	// Unmarshal JSON data into it
 	if err := json.Unmarshal(de.Data, ptr.Interface()); err != nil {
-		return nil, fmt.Errorf("failed to deserialize %s: %w", de.Type, err)
+		return nil, fmt.Errorf("json unmarshal for event type %q: %s", de.Type, err)
 	}
 
 	return ptr.Elem().Interface(), nil
