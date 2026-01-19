@@ -2,9 +2,11 @@ package fairway_test
 
 import (
 	"context"
+	"errors"
 	"iter"
 	"testing"
 
+	"github.com/avast/retry-go/v4"
 	"github.com/err0r500/fairway"
 	"github.com/err0r500/fairway/dcb"
 	"github.com/stretchr/testify/assert"
@@ -309,7 +311,8 @@ func TestRunPure_PropagatesCommandErrors(t *testing.T) {
 	})
 
 	err := runner.RunPure(context.Background(), cmd)
-	assert.Equal(t, expectedErr, err)
+	// retry-go wraps error, but should not retry on non-append-condition-failed
+	assert.ErrorIs(t, err, expectedErr)
 }
 
 func TestRunPure_PropagatesReadErrors(t *testing.T) {
@@ -343,7 +346,8 @@ func TestRunPure_PropagatesAppendErrors(t *testing.T) {
 	}
 
 	err := runner.RunPure(context.Background(), cmd)
-	assert.Equal(t, expectedErr, err)
+	// Retries 4 times on ErrAppendConditionFailed, then returns error
+	assert.ErrorIs(t, err, expectedErr)
 }
 
 func TestRunWithEffect_PassesDependencies(t *testing.T) {
@@ -452,7 +456,7 @@ func TestCancelledContextDuringRead(t *testing.T) {
 	err := runner.RunPure(ctx, cmd)
 	require.Error(t, err, "expected error from cancelled context")
 
-	assert.Equal(t, context.Canceled, err)
+	assert.ErrorIs(t, err, context.Canceled)
 }
 
 func TestCancelledContextDuringAppend(t *testing.T) {
@@ -470,7 +474,7 @@ func TestCancelledContextDuringAppend(t *testing.T) {
 	err := runner.RunPure(ctx, cmd)
 	require.Error(t, err, "expected error from cancelled context")
 
-	assert.Equal(t, context.Canceled, err)
+	assert.ErrorIs(t, err, context.Canceled)
 }
 
 func TestTypeOnlyQuery(t *testing.T) {
@@ -696,6 +700,7 @@ type mockStore struct {
 
 	// What to return from Append()
 	AppendError error
+	AppendFunc  func(context.Context, []dcb.Event, *dcb.AppendCondition) error
 
 	// Captured calls (for assertions)
 	AppendCalls []appendCall
@@ -736,6 +741,11 @@ func (m *mockStore) Append(ctx context.Context, events []dcb.Event, condition *d
 		return ctx.Err()
 	}
 	m.AppendCalls = append(m.AppendCalls, appendCall{Events: events, Condition: condition})
+
+	// Use AppendFunc if provided (for dynamic behavior in tests)
+	if m.AppendFunc != nil {
+		return m.AppendFunc(ctx, events, condition)
+	}
 	return m.AppendError
 }
 
@@ -881,4 +891,158 @@ type commandWithEffectFunc[Deps any] func(context.Context, fairway.EventReadAppe
 
 func (f commandWithEffectFunc[Deps]) Run(ctx context.Context, ra fairway.EventReadAppender, deps Deps) error {
 	return f(ctx, ra, deps)
+}
+
+// RETRY TESTS
+
+func TestRunPure_RetriesOnAppendConditionFailed(t *testing.T) {
+	attemptCount := 0
+	store := &mockStore{
+		AppendFunc: func(ctx context.Context, events []dcb.Event, cond *dcb.AppendCondition) error {
+			attemptCount++
+			if attemptCount < 3 {
+				return dcb.ErrAppendConditionFailed
+			}
+			return nil // Succeed on 3rd attempt
+		},
+	}
+	runner := fairway.NewCommandRunner(store)
+
+	cmd := &testCommand{
+		T:              t,
+		EventsToAppend: []any{TestEventA{Value: "test"}},
+	}
+
+	err := runner.RunPure(context.Background(), cmd)
+	assert.NoError(t, err)
+	assert.Equal(t, 3, attemptCount, "should have retried and succeeded on 3rd attempt")
+}
+
+func TestRunPure_DoesNotRetryOnOtherErrors(t *testing.T) {
+	attemptCount := 0
+	expectedErr := errors.New("some other error")
+	store := &mockStore{
+		AppendFunc: func(ctx context.Context, events []dcb.Event, cond *dcb.AppendCondition) error {
+			attemptCount++
+			return expectedErr
+		},
+	}
+	runner := fairway.NewCommandRunner(store)
+
+	cmd := &testCommand{
+		T:              t,
+		EventsToAppend: []any{TestEventA{Value: "test"}},
+	}
+
+	err := runner.RunPure(context.Background(), cmd)
+	assert.ErrorIs(t, err, expectedErr)
+	assert.Equal(t, 1, attemptCount, "should NOT retry on non-append-condition-failed errors")
+}
+
+func TestRunPure_RespectsMaxRetries(t *testing.T) {
+	attemptCount := 0
+	store := &mockStore{
+		AppendFunc: func(ctx context.Context, events []dcb.Event, cond *dcb.AppendCondition) error {
+			attemptCount++
+			return dcb.ErrAppendConditionFailed // Always fail
+		},
+	}
+
+	// Configure with 2 retries (= 3 total attempts)
+	runner := fairway.NewCommandRunner(store, 
+		fairway.WithRetryOptions(retry.Attempts(3)))
+
+	cmd := &testCommand{
+		T:              t,
+		EventsToAppend: []any{TestEventA{Value: "test"}},
+	}
+
+	err := runner.RunPure(context.Background(), cmd)
+	assert.ErrorIs(t, err, dcb.ErrAppendConditionFailed)
+	assert.Equal(t, 3, attemptCount, "should have retried exactly 2 times (3 total attempts)")
+}
+
+func TestRunPure_NoRetry(t *testing.T) {
+	attemptCount := 0
+	store := &mockStore{
+		AppendFunc: func(ctx context.Context, events []dcb.Event, cond *dcb.AppendCondition) error {
+			attemptCount++
+			return dcb.ErrAppendConditionFailed
+		},
+	}
+
+	// Configure with no retry
+	runner := fairway.NewCommandRunner(store,
+		fairway.WithRetryOptions(retry.Attempts(1)))
+
+	cmd := &testCommand{
+		T:              t,
+		EventsToAppend: []any{TestEventA{Value: "test"}},
+	}
+
+	err := runner.RunPure(context.Background(), cmd)
+	assert.ErrorIs(t, err, dcb.ErrAppendConditionFailed)
+	assert.Equal(t, 1, attemptCount, "should NOT retry when Attempts=1")
+}
+
+// Test command with custom retry policy
+type customRetryCommand struct {
+	t              *testing.T
+	attemptTracker *int
+}
+
+func (c customRetryCommand) Run(ctx context.Context, ra fairway.EventReadAppender) error {
+	*c.attemptTracker++
+	return dcb.ErrAppendConditionFailed
+}
+
+func (c customRetryCommand) RetryOptions() []retry.Option {
+	return []retry.Option{
+		retry.Attempts(5), // Custom: 5 attempts
+		retry.RetryIf(func(err error) bool {
+			return errors.Is(err, dcb.ErrAppendConditionFailed)
+		}),
+	}
+}
+
+func TestRunPure_CommandLevelRetryOverridesRunner(t *testing.T) {
+	store := &mockStore{
+		AppendError: dcb.ErrAppendConditionFailed, // Always fail
+	}
+
+	// Runner configured with 2 attempts
+	runner := fairway.NewCommandRunner(store,
+		fairway.WithRetryOptions(retry.Attempts(2)))
+
+	attemptCount := 0
+	cmd := customRetryCommand{
+		t:              t,
+		attemptTracker: &attemptCount,
+	}
+
+	err := runner.RunPure(context.Background(), cmd)
+	assert.ErrorIs(t, err, dcb.ErrAppendConditionFailed)
+	assert.Equal(t, 5, attemptCount, "command config (5 attempts) should override runner config (2 attempts)")
+}
+
+func TestCommandWithEffectRunner_NoRetryByDefault(t *testing.T) {
+	attemptCount := 0
+	store := &mockStore{
+		AppendFunc: func(ctx context.Context, events []dcb.Event, cond *dcb.AppendCondition) error {
+			attemptCount++
+			return dcb.ErrAppendConditionFailed
+		},
+	}
+
+	// CommandWithEffectRunner with no options - should NOT retry by default
+	runner := fairway.NewCommandWithEffectRunner(store, struct{}{})
+
+	cmd := &testCommand{
+		T:              t,
+		EventsToAppend: []any{TestEventA{Value: "test"}},
+	}
+
+	err := runner.RunPure(context.Background(), cmd)
+	assert.ErrorIs(t, err, dcb.ErrAppendConditionFailed)
+	assert.Equal(t, 1, attemptCount, "CommandWithEffectRunner should NOT retry by default")
 }
