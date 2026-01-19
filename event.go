@@ -8,17 +8,9 @@ import (
 	"github.com/err0r500/fairway/dcb"
 )
 
-// TaggedEvent wraps an event with optional tags
 type TaggedEvent interface {
 	Tags() []string
-	// Event any      // the actual event struct
-	// Tags  []string // optional tags for categorization
 }
-
-// // Event creates a TaggedEvent with tags
-// func Event(event any, tags ...string) TaggedEvent {
-// 	return TaggedEvent{Event: event, Tags: tags}
-// }
 
 // Typer is anything that can provide an event type string
 type Typer interface {
