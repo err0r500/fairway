@@ -57,10 +57,10 @@ func TestCreateList_ApiValidation(t *testing.T) {
 	t.Parallel()
 	store, server, httpClient := given.FreshSetup(t, createlist.Register)
 
-	// Given - store with existing ListCreated event
+	// Given
 	listId := "list-1"
 
-	// When - POST to create duplicate
+	// When
 	resp, err := httpClient.R().
 		SetBody(map[string]any{}).
 		Post(apiRoute(server, listId))

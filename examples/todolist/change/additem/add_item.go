@@ -1,4 +1,4 @@
-package change
+package additem
 
 import (
 	"context"
@@ -7,13 +7,17 @@ import (
 	"net/http"
 
 	"github.com/err0r500/fairway"
-	"github.com/err0r500/fairway/utils"
 	"github.com/err0r500/fairway/examples/todolist/change"
 	"github.com/err0r500/fairway/examples/todolist/event"
+	"github.com/err0r500/fairway/utils"
 )
 
 func init() {
-	change.ChangeRegistry.RegisterCommand("POST /api/lists/{listId}/items/{itemId}", httpHandler)
+	Register(&change.ChangeRegistry)
+}
+
+func Register(registry *fairway.HttpChangeRegistry) {
+	registry.RegisterCommand("POST /api/lists/{listId}/items/{itemId}", httpHandler)
 }
 
 var itemAlreadyExistsErr = errors.New("item already exists")
@@ -27,6 +31,7 @@ func httpHandler(runner fairway.CommandRunner) http.HandlerFunc {
 		var req reqBody
 		if err := utils.JsonParse(r, &req); err != nil {
 			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(err.Error())
 			return
 		}
 
@@ -35,14 +40,13 @@ func httpHandler(runner fairway.CommandRunner) http.HandlerFunc {
 			itemId: r.PathValue("itemId"),
 			text:   req.Text,
 		}); err != nil {
-			switch err {
-			case itemAlreadyExistsErr:
+			if errors.Is(err, itemAlreadyExistsErr) {
 				w.WriteHeader(http.StatusConflict)
-
-			default:
-				w.WriteHeader(http.StatusInternalServerError)
-				json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+				return
 			}
+
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(err.Error())
 			return
 		}
 
@@ -62,12 +66,12 @@ func (cmd command) Run(ctx context.Context, ev fairway.EventReadAppender) error 
 	if err := ev.ReadEvents(ctx,
 		fairway.QueryItems(
 			fairway.NewQueryItem().
-				Types(event.ItemAdded{}).
+				Types(event.ItemCreated{}).
 				Tags(event.ItemTagPrefix(cmd.itemId)),
 		),
 		func(te fairway.TaggedEvent) bool {
 			switch te.(type) {
-			case event.ItemAdded:
+			case event.ItemCreated:
 				itemAlreadyExists = true
 				return false
 			default:
@@ -83,6 +87,6 @@ func (cmd command) Run(ctx context.Context, ev fairway.EventReadAppender) error 
 
 	return ev.AppendEvents(ctx,
 		fairway.TaggedEvent(
-			event.ItemAdded{ListId: cmd.listId, ItemId: cmd.itemId, Text: cmd.text},
+			event.ItemCreated{Id: cmd.itemId, ListId: cmd.listId, Text: cmd.text},
 		))
 }
