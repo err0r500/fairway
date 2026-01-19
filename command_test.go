@@ -105,7 +105,7 @@ func TestMultipleReads_LastVersionstampWins(tt *testing.T) {
 			}
 
 			// When - Append after multiple reads
-			return ra.AppendEvents(ctx, fairway.Event(RandomEvent(t)))
+			return ra.AppendEvents(ctx, fairway.TaggedEvent(RandomEvent(t)))
 		}
 
 		cmdFunc := commandFunc(impl)
@@ -826,17 +826,33 @@ type TestEventA struct {
 	Value string
 }
 
+func (e TestEventA) Tags() []string {
+	return nil
+}
+
 type TestEventB struct {
 	Count int
+}
+
+func (e TestEventB) Tags() []string {
+	return nil
 }
 
 type TestEventC struct {
 	Flag bool
 }
 
+func (e TestEventC) Tags() []string {
+	return nil
+}
+
 // Custom Typer for testing
 type CustomTypedEvent struct {
 	Value string
+}
+
+func (e CustomTypedEvent) Tags() []string {
+	return nil
 }
 
 func (CustomTypedEvent) TypeString() string {
