@@ -70,7 +70,7 @@ func TestCreateList_Conflict(t *testing.T) {
 	events := dcb.CollectEvents(t, store.Read(t.Context(),
 		dcb.Query{Items: []dcb.QueryItem{{
 			Types: []string{"ListCreated"},
-			Tags:  []string{event.TagListId(listId)},
+			Tags:  []string{event.ListTagPrefix(listId)},
 		}}}, nil))
 	assert.Len(t, events, 1)
 }

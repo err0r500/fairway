@@ -811,18 +811,19 @@ func (cmd *testCommand) Run(ctx context.Context, ra fairway.EventReadAppender) e
 		}
 
 		// Set tags based on event type
+		// UGLY, we won't case match on all possible events types
 		switch e := evt.(type) {
 		case TestEventA:
-			e.EventTags = tags
+			e.eventTags.value = tags
 			events[i] = e
 		case TestEventB:
-			e.EventTags = tags
+			e.eventTags.value = tags
 			events[i] = e
 		case TestEventC:
-			e.EventTags = tags
+			e.eventTags.value = tags
 			events[i] = e
 		case CustomTypedEvent:
-			e.EventTags = tags
+			e.eventTags.value = tags
 			events[i] = e
 		default:
 			events[i] = evt.(fairway.TaggedEvent)
@@ -838,42 +839,33 @@ func (cmd *testCommand) Run(ctx context.Context, ra fairway.EventReadAppender) e
 	return err
 }
 
-// Event types for testing
-type TestEventA struct {
-	Value     string
-	EventTags []string
+type eventTags struct {
+	value []string
 }
 
-func (e TestEventA) Tags() []string {
-	return e.EventTags
+func (e eventTags) Tags() []string {
+	return e.value
+}
+
+type TestEventA struct {
+	Value string
+	eventTags
 }
 
 type TestEventB struct {
-	Count     int
-	EventTags []string
-}
-
-func (e TestEventB) Tags() []string {
-	return e.EventTags
+	Count int
+	eventTags
 }
 
 type TestEventC struct {
-	Flag      bool
-	EventTags []string
-}
-
-func (e TestEventC) Tags() []string {
-	return e.EventTags
+	Flag bool
+	eventTags
 }
 
 // Custom Typer for testing
 type CustomTypedEvent struct {
-	Value     string
-	EventTags []string
-}
-
-func (e CustomTypedEvent) Tags() []string {
-	return e.EventTags
+	Value string
+	eventTags
 }
 
 func (CustomTypedEvent) TypeString() string {

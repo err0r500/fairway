@@ -64,7 +64,7 @@ func (cmd command) Run(ctx context.Context, ev fairway.EventReadAppender) error 
 		fairway.QueryItems(
 			fairway.NewQueryItem().
 				Types(event.ListCreated{}).
-				Tags(event.TagListId(cmd.listId)),
+				Tags(event.ListTagPrefix(cmd.listId)),
 		),
 		func(te fairway.TaggedEvent, _ error) bool {
 			switch te.(type) {

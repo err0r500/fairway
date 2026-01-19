@@ -8,7 +8,7 @@ type ItemAdded struct {
 
 func (e ItemAdded) Tags() []string {
 	return []string{
-		TagListId(e.ListId),
-		TagItemId(e.ItemId),
+		ListTagPrefix(e.ListId),
+		ItemTagPrefix(e.ItemId),
 	}
 }

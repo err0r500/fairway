@@ -26,7 +26,7 @@ func httpHandler(runner fairway.EventsReader) http.HandlerFunc {
 			fairway.QueryItems(
 				fairway.NewQueryItem().
 					Types(event.ListCreated{}, event.ItemAdded{}).
-					Tags(event.TagListId(r.PathValue("listId"))),
+					Tags(event.ListTagPrefix(r.PathValue("listId"))),
 			),
 			func(te fairway.TaggedEvent, _ error) bool {
 				switch e := te.(type) {

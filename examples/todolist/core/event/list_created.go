@@ -7,6 +7,6 @@ type ListCreated struct {
 
 func (e ListCreated) Tags() []string {
 	return []string{
-		TagListId(e.ListId),
+		ListTagPrefix(e.ListId),
 	}
 }

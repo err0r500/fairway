@@ -57,11 +57,11 @@ func eventGen() *rapid.Generator[any] {
 		eventType := rapid.IntRange(0, 2).Draw(t, "eventType")
 		switch eventType {
 		case 0:
-			return TestEventA{Value: rapid.String().Draw(t, "value"), EventTags: tags}
+			return TestEventA{Value: rapid.String().Draw(t, "value"), eventTags: eventTags{value: tags}}
 		case 1:
-			return TestEventB{Count: rapid.Int().Draw(t, "count"), EventTags: tags}
+			return TestEventB{Count: rapid.Int().Draw(t, "count"), eventTags: eventTags{value: tags}}
 		default:
-			return TestEventC{Flag: rapid.Bool().Draw(t, "flag"), EventTags: tags}
+			return TestEventC{Flag: rapid.Bool().Draw(t, "flag"), eventTags: eventTags{value: tags}}
 		}
 	})
 }
