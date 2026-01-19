@@ -25,7 +25,7 @@ type Typer interface {
 //
 //  1. If the event implements Typer interface, use TypeString() method
 //  2. Otherwise, fall back to the struct's type name via reflection
-func resolveEventTypeName(event Event) string {
+func resolveEventTypeName(event any) string {
 	if typer, ok := event.(Typer); ok {
 		return typer.TypeString()
 	}
