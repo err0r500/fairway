@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-
 func TestCreateList_Success(t *testing.T) {
 	t.Parallel()
 	store, server, httpClient := given.FreshSetup(t, createlist.Register)

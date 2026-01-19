@@ -1,4 +1,4 @@
-package change
+package showlist
 
 import (
 	"encoding/json"
@@ -10,7 +10,12 @@ import (
 )
 
 func init() {
-	view.ViewRegistry.RegisterReadModel("GET /api/lists/{listId}", httpHandler)
+	Register(&view.ViewRegistry)
+}
+
+func Register(registry *fairway.HttpViewRegistry) {
+	registry.RegisterReadModel("GET /api/lists/{listId}", httpHandler)
+
 }
 
 type resp struct {
