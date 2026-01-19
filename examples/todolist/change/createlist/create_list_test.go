@@ -11,8 +11,8 @@ import (
 
 	"github.com/err0r500/fairway"
 	"github.com/err0r500/fairway/dcb"
-	"github.com/err0r500/fairway/examples/todolist/core/change/createlist"
-	"github.com/err0r500/fairway/examples/todolist/core/event"
+	"github.com/err0r500/fairway/examples/todolist/change/createlist"
+	"github.com/err0r500/fairway/examples/todolist/event"
 	"github.com/err0r500/fairway/testing/given"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

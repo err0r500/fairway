@@ -12,8 +12,8 @@ import (
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"github.com/err0r500/fairway"
 	"github.com/err0r500/fairway/dcb"
-	"github.com/err0r500/fairway/examples/todolist/core/change"
-	"github.com/err0r500/fairway/examples/todolist/core/view"
+	"github.com/err0r500/fairway/examples/todolist/change"
+	"github.com/err0r500/fairway/examples/todolist/view"
 )
 
 func main() {

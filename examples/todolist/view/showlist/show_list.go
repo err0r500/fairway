@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"github.com/err0r500/fairway"
-	"github.com/err0r500/fairway/examples/todolist/core/event"
-	"github.com/err0r500/fairway/examples/todolist/core/view"
+	"github.com/err0r500/fairway/examples/todolist/event"
+	"github.com/err0r500/fairway/examples/todolist/view"
 )
 
 func init() {

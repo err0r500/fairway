@@ -15,7 +15,7 @@ import (
 
 func main() {
 	// Configuration
-	boundedContext := "core" // default
+	boundedContext := "" // default
 	if len(os.Args) > 1 {
 		boundedContext = strings.TrimSpace(os.Args[1])
 	}
@@ -47,7 +47,13 @@ func main() {
 				// Check if this directory contains init functions
 				if hasInitFunction(subDir) {
 					// Create import path
-					importPath := fmt.Sprintf("%s/%s/%s/%s", moduleName, boundedContext, sliceDir, entry.Name())
+					var importPath string
+					if boundedContext == "" {
+						importPath = fmt.Sprintf("%s/%s/%s", moduleName, sliceDir, entry.Name())
+					} else {
+						importPath = fmt.Sprintf("%s/%s/%s/%s", moduleName, boundedContext, sliceDir, entry.Name())
+					}
+
 					imports = append(imports, importPath)
 					log.Printf("Adding: %s", importPath)
 				}

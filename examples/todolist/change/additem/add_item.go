@@ -7,8 +7,8 @@ import (
 	"net/http"
 
 	"github.com/err0r500/fairway"
-	"github.com/err0r500/fairway/examples/todolist/core/change"
-	"github.com/err0r500/fairway/examples/todolist/core/event"
+	"github.com/err0r500/fairway/examples/todolist/change"
+	"github.com/err0r500/fairway/examples/todolist/event"
 )
 
 func init() {
@@ -33,13 +33,14 @@ func httpHandler(runner fairway.CommandRunner) http.HandlerFunc {
 			itemId: r.PathValue("itemId"),
 			text:   req.Text,
 		}); err != nil {
-			if errors.Is(err, itemAlreadyExistsErr) {
+			switch err {
+			case itemAlreadyExistsErr:
 				w.WriteHeader(http.StatusConflict)
-				return
-			}
 
-			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+			default:
+				w.WriteHeader(http.StatusInternalServerError)
+				json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+			}
 			return
 		}
 
