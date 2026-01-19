@@ -53,14 +53,15 @@ func RandomStoredEventsMin(t *rapid.T, minCount, maxCount int) []dcb.StoredEvent
 
 func eventGen() *rapid.Generator[any] {
 	return rapid.Custom(func(t *rapid.T) any {
+		tags := RandomTags(t)
 		eventType := rapid.IntRange(0, 2).Draw(t, "eventType")
 		switch eventType {
 		case 0:
-			return TestEventA{Value: rapid.String().Draw(t, "value")}
+			return TestEventA{Value: rapid.String().Draw(t, "value"), EventTags: tags}
 		case 1:
-			return TestEventB{Count: rapid.Int().Draw(t, "count")}
+			return TestEventB{Count: rapid.Int().Draw(t, "count"), EventTags: tags}
 		default:
-			return TestEventC{Flag: rapid.Bool().Draw(t, "flag")}
+			return TestEventC{Flag: rapid.Bool().Draw(t, "flag"), EventTags: tags}
 		}
 	})
 }
