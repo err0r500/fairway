@@ -28,7 +28,7 @@ func httpHandler(runner fairway.EventsReader) http.HandlerFunc {
 					Types(event.ListCreated{}, event.ItemAdded{}).
 					Tags(event.ListTagPrefix(r.PathValue("listId"))),
 			),
-			func(te fairway.TaggedEvent, _ error) bool {
+			func(te fairway.TaggedEvent) bool {
 				switch e := te.(type) {
 				case event.ListCreated:
 					list.Id = e.ListId

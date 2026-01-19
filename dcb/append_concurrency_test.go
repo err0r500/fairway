@@ -298,10 +298,10 @@ func TestInvalidQuery(t *testing.T) {
 	// When
 	result := store.Read(ctx, Query{Items: []QueryItem{{Types: []string{}, Tags: []string{}}}}, nil)
 
-	// n
+	// Then
 	for _, err := range result {
 		assert.Error(t, err)
-		assert.Equal(t, err, ErrInvalidQuery)
+		assert.ErrorContains(t, err, ErrInvalidQuery.Error())
 	}
 }
 

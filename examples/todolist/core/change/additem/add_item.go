@@ -63,7 +63,7 @@ func (cmd command) Run(ctx context.Context, ev fairway.EventReadAppender) error 
 				Types(event.ItemAdded{}).
 				Tags(event.ItemTagPrefix(cmd.itemId)),
 		),
-		func(te fairway.TaggedEvent, _ error) bool {
+		func(te fairway.TaggedEvent) bool {
 			switch te.(type) {
 			case event.ItemAdded:
 				itemAlreadyExists = true

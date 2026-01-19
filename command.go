@@ -2,6 +2,7 @@ package fairway
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/err0r500/fairway/dcb"
 )
@@ -111,12 +112,11 @@ func (ra *commandReadAppender) ReadEvents(ctx context.Context, query Query, hand
 
 	for dcbStoredEvent, err := range ra.store.Read(ctx, *ra.query, nil) {
 		if err != nil {
-			return err
-		}
-
-		// Check context
-		if ctx.Err() != nil {
-			return ctx.Err()
+			// context errors already have context
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			return fmt.Errorf("reading events: %s", err)
 		}
 
 		// Track last versionstamp
@@ -125,7 +125,7 @@ func (ra *commandReadAppender) ReadEvents(ctx context.Context, query Query, hand
 		// Deserialize dcb.Event → event
 		fairwayEvent, err := ra.eventRegistry.deserialize(dcbStoredEvent.Event)
 		if err != nil {
-			return err
+			return fmt.Errorf("deserializing event at position %x: %s", dcbStoredEvent.Position[:], err)
 		}
 
 		te, ok := fairwayEvent.(TaggedEvent);
@@ -134,7 +134,7 @@ func (ra *commandReadAppender) ReadEvents(ctx context.Context, query Query, hand
 		}
 
 		// Dispatch TaggedEvent to handler
-		if !handler(te, nil) {
+		if !handler(te) {
 			return nil
 		}
 	}

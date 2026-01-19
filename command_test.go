@@ -87,7 +87,7 @@ func TestMultipleReads_LastVersionstampWins(tt *testing.T) {
 				fairway.QueryItems(
 					fairway.NewQueryItem().Types(TestEventA{}, TestEventB{}, TestEventC{}),
 				),
-				func(te fairway.TaggedEvent, err error) bool {
+				func(te fairway.TaggedEvent) bool {
 					return true
 				}); err != nil {
 				return err
@@ -98,7 +98,7 @@ func TestMultipleReads_LastVersionstampWins(tt *testing.T) {
 				fairway.QueryItems(
 					fairway.NewQueryItem().Types(TestEventB{}),
 				),
-				func(te fairway.TaggedEvent, err error) bool {
+				func(te fairway.TaggedEvent) bool {
 					return true
 				}); err != nil {
 				return err
@@ -170,7 +170,7 @@ func TestHandlerStopsEarly_VersionstampFromLastYielded(tt *testing.T) {
 				fairway.QueryItems(
 					fairway.NewQueryItem().Types(TestEventA{}, TestEventB{}, TestEventC{}),
 				),
-				func(te fairway.TaggedEvent, err error) bool {
+				func(te fairway.TaggedEvent) bool {
 					count++
 					return count < stopAfter // Stop early
 				}); err != nil {
@@ -327,7 +327,7 @@ func TestRunPure_PropagatesReadErrors(t *testing.T) {
 	}
 
 	err := runner.RunPure(context.Background(), cmd)
-	assert.Equal(t, expectedErr, err)
+	assert.ErrorContains(t, err, expectedErr.Error())
 }
 
 func TestRunPure_PropagatesAppendErrors(t *testing.T) {
@@ -557,7 +557,7 @@ func TestMultipleQueryItems_OR(t *testing.T) {
 				fairway.NewQueryItem().Types(TestEventA{}),
 				fairway.NewQueryItem().Types(TestEventB{}),
 			),
-			func(te fairway.TaggedEvent, err error) bool {
+			func(te fairway.TaggedEvent) bool {
 				return true
 			}); err != nil {
 			return err
@@ -644,7 +644,7 @@ func TestReadAppendReadAppend(t *testing.T) {
 			fairway.QueryItems(
 				fairway.NewQueryItem().Types(TestEventA{}, TestEventB{}),
 			),
-			func(te fairway.TaggedEvent, err error) bool {
+			func(te fairway.TaggedEvent) bool {
 				return true
 			}); err != nil {
 			return err
@@ -660,7 +660,7 @@ func TestReadAppendReadAppend(t *testing.T) {
 			fairway.QueryItems(
 				fairway.NewQueryItem().Types(TestEventB{}),
 			),
-			func(te fairway.TaggedEvent, err error) bool {
+			func(te fairway.TaggedEvent) bool {
 				return true
 			}); err != nil {
 			return err
@@ -780,10 +780,7 @@ func (cmd *testCommand) Run(ctx context.Context, ra fairway.EventReadAppender) e
 		}
 
 		query := fairway.QueryItems(queryItems...)
-		handler := func(te fairway.TaggedEvent, err error) bool {
-			if err != nil {
-				return false
-			}
+		handler := func(te fairway.TaggedEvent) bool {
 			cmd.ReadCount++
 			if cmd.OnRead != nil {
 				cmd.OnRead(te)
