@@ -7,6 +7,8 @@ require (
 	github.com/err0r500/fairway v0.0.0
 )
 
+require github.com/avast/retry-go/v4 v4.7.0 // indirect
+
 replace github.com/err0r500/fairway => ../../
 
 require (

@@ -33,14 +33,13 @@ func httpHandler(runner fairway.CommandRunner) http.HandlerFunc {
 			itemId: r.PathValue("itemId"),
 			text:   req.Text,
 		}); err != nil {
-			switch err {
-			case itemAlreadyExistsErr:
+			if errors.Is(err, itemAlreadyExistsErr) {
 				w.WriteHeader(http.StatusConflict)
-
-			default:
-				w.WriteHeader(http.StatusInternalServerError)
-				json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+				return
 			}
+
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 			return
 		}
 
