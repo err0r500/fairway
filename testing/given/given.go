@@ -8,7 +8,7 @@ import (
 )
 
 // EventsInStore appends events to store without condition (for test setup)
-func EventsInStore(store dcb.DcbStore, e fairway.TaggedEvent, ee ...fairway.TaggedEvent) error {
+func EventsInStore(store dcb.DcbStore, e fairway.TaggedEvent, ee ...fairway.TaggedEvent) {
 	ctx := context.Background()
 
 	allEvents := append([]fairway.TaggedEvent{e}, ee...)
@@ -17,10 +17,12 @@ func EventsInStore(store dcb.DcbStore, e fairway.TaggedEvent, ee ...fairway.Tagg
 	for i, te := range allEvents {
 		dcbEvent, err := fairway.ToDcbEvent(te)
 		if err != nil {
-			return err
+			panic(err)
 		}
 		dcbEvents[i] = dcbEvent
 	}
 
-	return store.Append(ctx, dcbEvents, nil)
+	if err := store.Append(ctx, dcbEvents, nil); err != nil {
+		panic(err)
+	}
 }

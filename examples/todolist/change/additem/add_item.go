@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/err0r500/fairway"
+	"github.com/err0r500/fairway/utils"
 	"github.com/err0r500/fairway/examples/todolist/change"
 	"github.com/err0r500/fairway/examples/todolist/event"
 )
@@ -24,7 +25,8 @@ type reqBody struct {
 func httpHandler(runner fairway.CommandRunner) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req reqBody
-		if !fairway.JsonParse(w, r, &req) {
+		if err := utils.JsonParse(r, &req); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 

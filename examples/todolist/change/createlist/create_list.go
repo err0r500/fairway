@@ -9,6 +9,7 @@ import (
 	"github.com/err0r500/fairway"
 	"github.com/err0r500/fairway/examples/todolist/change"
 	"github.com/err0r500/fairway/examples/todolist/event"
+	"github.com/err0r500/fairway/utils"
 )
 
 func init() {
@@ -29,7 +30,9 @@ type reqBody struct {
 func httpHandler(runner fairway.CommandRunner) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req reqBody
-		if !fairway.JsonParse(w, r, &req) {
+		if err := utils.JsonParse(r, &req); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(err.Error())
 			return
 		}
 
@@ -43,7 +46,7 @@ func httpHandler(runner fairway.CommandRunner) http.HandlerFunc {
 			}
 
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+			json.NewEncoder(w).Encode(err.Error())
 			return
 		}
 
