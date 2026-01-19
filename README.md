@@ -2,6 +2,16 @@
   <img src="./fairway.png">
 </p>
 
+## ⚠️ Experimental (Work in Progress)
+
+This project is **experimental** and under **heavy work**. It’s **not published yet**.
+
+I'm progressively migrating code from the private repo of a previous attempt
+
+✅ Feel free to try it locally:
+- clone the repo
+- toy with the example 🙂
+
 # Fairway
 Golang framework for building micromodule systems using eventsourcing with [Dynamic Consistency Boundaries](https://dcb.events), and [FoundationDB](https://www.foundationdb.org).
 
