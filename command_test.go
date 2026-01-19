@@ -105,7 +105,7 @@ func TestMultipleReads_LastVersionstampWins(tt *testing.T) {
 			}
 
 			// When - Append after multiple reads
-			return ra.AppendEvents(ctx, fairway.Event(RandomEvent(t)))
+			return ra.AppendEvents(ctx, RandomEvent(t).(fairway.TaggedEvent))
 		}
 
 		cmdFunc := commandFunc(impl)
@@ -178,7 +178,7 @@ func TestHandlerStopsEarly_VersionstampFromLastYielded(tt *testing.T) {
 			}
 
 			// When - Append after stopped iteration
-			return ra.AppendEvents(ctx, fairway.Event(RandomEvent(t)))
+			return ra.AppendEvents(ctx, RandomEvent(t).(fairway.TaggedEvent))
 		}
 
 		cmdFunc := commandFunc(impl)
@@ -359,7 +359,7 @@ func TestRunWithEffect_PassesDependencies(t *testing.T) {
 	impl := func(cmd *EffectCommand) fairway.CommandWithEffect[Deps] {
 		return commandWithEffectFunc[Deps](func(ctx context.Context, ra fairway.EventReadAppender, deps Deps) error {
 			cmd.ReceivedDeps = &deps
-			return ra.AppendEvents(ctx, fairway.Event(TestEventA{Value: deps.Value}))
+			return ra.AppendEvents(ctx, TestEventA{Value: deps.Value})
 		})
 	}
 
@@ -563,7 +563,7 @@ func TestMultipleQueryItems_OR(t *testing.T) {
 			return err
 		}
 
-		return ra.AppendEvents(ctx, fairway.Event(TestEventC{Flag: true}))
+		return ra.AppendEvents(ctx, TestEventC{Flag: true})
 	})
 
 	err := runner.RunPure(context.Background(), impl)
@@ -608,10 +608,10 @@ func TestMultipleAppends_InOneCommand(t *testing.T) {
 	runner := fairway.NewCommandRunner(store)
 
 	impl := commandFunc(func(ctx context.Context, ra fairway.EventReadAppender) error {
-		if err := ra.AppendEvents(ctx, fairway.Event(TestEventA{Value: "first"})); err != nil {
+		if err := ra.AppendEvents(ctx, TestEventA{Value: "first"}); err != nil {
 			return err
 		}
-		return ra.AppendEvents(ctx, fairway.Event(TestEventB{Count: 2}))
+		return ra.AppendEvents(ctx, TestEventB{Count: 2})
 	})
 
 	err := runner.RunPure(context.Background(), impl)
@@ -651,7 +651,7 @@ func TestReadAppendReadAppend(t *testing.T) {
 		}
 
 		// First append
-		if err := ra.AppendEvents(ctx, fairway.Event(TestEventB{Count: 100})); err != nil {
+		if err := ra.AppendEvents(ctx, TestEventB{Count: 100}); err != nil {
 			return err
 		}
 
@@ -667,7 +667,7 @@ func TestReadAppendReadAppend(t *testing.T) {
 		}
 
 		// Second append
-		return ra.AppendEvents(ctx, fairway.Event(TestEventC{Flag: true}))
+		return ra.AppendEvents(ctx, TestEventC{Flag: true})
 	})
 
 	err := runner.RunPure(context.Background(), impl)
@@ -809,7 +809,24 @@ func (cmd *testCommand) Run(ctx context.Context, ra fairway.EventReadAppender) e
 		if i < len(cmd.AppendTags) {
 			tags = cmd.AppendTags[i]
 		}
-		events[i] = fairway.Event(evt, tags...)
+
+		// Set tags based on event type
+		switch e := evt.(type) {
+		case TestEventA:
+			e.EventTags = tags
+			events[i] = e
+		case TestEventB:
+			e.EventTags = tags
+			events[i] = e
+		case TestEventC:
+			e.EventTags = tags
+			events[i] = e
+		case CustomTypedEvent:
+			e.EventTags = tags
+			events[i] = e
+		default:
+			events[i] = evt.(fairway.TaggedEvent)
+		}
 	}
 
 	err := ra.AppendEvents(ctx, events...)
@@ -823,20 +840,40 @@ func (cmd *testCommand) Run(ctx context.Context, ra fairway.EventReadAppender) e
 
 // Event types for testing
 type TestEventA struct {
-	Value string
+	Value     string
+	EventTags []string
+}
+
+func (e TestEventA) Tags() []string {
+	return e.EventTags
 }
 
 type TestEventB struct {
-	Count int
+	Count     int
+	EventTags []string
+}
+
+func (e TestEventB) Tags() []string {
+	return e.EventTags
 }
 
 type TestEventC struct {
-	Flag bool
+	Flag      bool
+	EventTags []string
+}
+
+func (e TestEventC) Tags() []string {
+	return e.EventTags
 }
 
 // Custom Typer for testing
 type CustomTypedEvent struct {
-	Value string
+	Value     string
+	EventTags []string
+}
+
+func (e CustomTypedEvent) Tags() []string {
+	return e.EventTags
 }
 
 func (CustomTypedEvent) TypeString() string {

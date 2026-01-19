@@ -53,10 +53,7 @@ func TestCreateList_Conflict(t *testing.T) {
 
 	listId := "list-1"
 	err := given.EventsInStore(store,
-		fairway.Event(
-			event.ListCreated{ListId: listId, Name: "Existing"},
-			event.TagListId(listId),
-		),
+		event.ListCreated{ListId: listId, Name: "Existing"},
 	)
 	require.NoError(t, err)
 

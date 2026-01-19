@@ -8,15 +8,8 @@ import (
 	"github.com/err0r500/fairway/dcb"
 )
 
-// TaggedEvent wraps an event with optional tags
-type TaggedEvent struct {
-	Event any      // the actual event struct
-	Tags  []string // optional tags for categorization
-}
-
-// Event creates a TaggedEvent with tags
-func Event(event any, tags ...string) TaggedEvent {
-	return TaggedEvent{Event: event, Tags: tags}
+type TaggedEvent interface {
+	Tags() []string
 }
 
 // Typer is anything that can provide an event type string
@@ -38,14 +31,14 @@ func resolveEventTypeName(event any) string {
 
 // ToDcbEvent serializes events using JSON
 func ToDcbEvent(e TaggedEvent) (dcb.Event, error) {
-	data, err := json.Marshal(e.Event)
+	data, err := json.Marshal(e)
 	if err != nil {
 		return dcb.Event{}, fmt.Errorf("failed to serialize event: %w", err)
 	}
 
 	return dcb.Event{
-		Type: resolveEventTypeName(e.Event),
+		Type: resolveEventTypeName(e),
 		Data: data,
-		Tags: e.Tags,
+		Tags: e.Tags(),
 	}, nil
 }
