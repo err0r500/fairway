@@ -949,7 +949,7 @@ func TestRunPure_RespectsMaxRetries(t *testing.T) {
 	}
 
 	// Configure with 2 retries (= 3 total attempts)
-	runner := fairway.NewCommandRunner(store, 
+	runner := fairway.NewCommandRunner(store,
 		fairway.WithRetryOptions(retry.Attempts(3)))
 
 	cmd := &testCommand{

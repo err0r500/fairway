@@ -16,7 +16,7 @@ func ExpectEventsInStore(t *testing.T, store dcb.DcbStore, events ...fairway.Tag
 	for _, taggedEvt := range events {
 		dcbEvent, err := fairway.ToDcbEvent(taggedEvt)
 		assert.NoError(t, err)
-		expectedEvents = append(expectedEvents,  dcbEvent)
+		expectedEvents = append(expectedEvents, dcbEvent)
 	}
 
 	var eventsInStore []dcb.Event

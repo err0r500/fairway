@@ -54,7 +54,7 @@ func (ra viewReader) ReadEvents(ctx context.Context, query Query, handler Handle
 			return fmt.Errorf("deserializing event at position %x: %s", dcbStoredEvent.Position[:], err)
 		}
 
-		te, ok := fairwayEvent.(TaggedEvent);
+		te, ok := fairwayEvent.(TaggedEvent)
 		if !ok {
 			return nil
 		}

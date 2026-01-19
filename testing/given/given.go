@@ -32,7 +32,6 @@ func EventsInStore(store dcb.DcbStore, e fairway.TaggedEvent, ee ...fairway.Tagg
 	}
 }
 
-
 func FreshSetup(t *testing.T, registerFn any) (dcb.DcbStore, *httptest.Server, *resty.Client) {
 	store := dcb.SetupTestStore(t)
 	runner := fairway.NewCommandRunner(store)
