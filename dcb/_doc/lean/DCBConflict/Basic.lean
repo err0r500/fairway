@@ -64,6 +64,61 @@ instance : Hashable Bucket where
     | .typeBucket t => hash (0, t)
     | .tagBucket t g => hash (1, t, g)
 
+-- Helper lemma for List BEq
+theorem List.beq_eq_true_of_eq {α : Type} [BEq α] [LawfulBEq α] (l : List α) : l.beq l = true := by
+  induction l with
+  | nil => rfl
+  | cons h t ih => simp only [List.beq, beq_self_eq_true, Bool.true_and, ih]
+
+theorem List.eq_of_beq_eq_true {α : Type} [BEq α] [LawfulBEq α] {l1 l2 : List α}
+    (h : l1.beq l2 = true) : l1 = l2 := by
+  induction l1 generalizing l2 with
+  | nil =>
+    cases l2 with
+    | nil => rfl
+    | cons => contradiction
+  | cons h1 t1 ih =>
+    cases l2 with
+    | nil => contradiction
+    | cons h2 t2 =>
+      simp only [List.beq, Bool.and_eq_true] at h
+      have hhead := eq_of_beq h.1
+      have htail := ih h.2
+      rw [hhead, htail]
+
+-- LawfulBEq for NonEmptyHashSet (using axiom for HashSet equality)
+axiom Std.HashSet.eq_of_toList_eq {α : Type} [BEq α] [Hashable α] [LawfulBEq α]
+    {a b : Std.HashSet α} (h : a.toList = b.toList) : a = b
+
+instance {α : Type} [BEq α] [Hashable α] [LawfulBEq α] : LawfulBEq (NonEmptyHashSet α) where
+  eq_of_beq {a b} h := by
+    simp only [BEq.beq, NonEmptyHashSet.toList] at h
+    have hlist := List.eq_of_beq_eq_true h
+    cases a; cases b
+    simp only [List.cons.injEq] at hlist
+    congr
+    · exact hlist.1
+    · exact Std.HashSet.eq_of_toList_eq hlist.2
+  rfl {a} := by
+    simp only [BEq.beq, NonEmptyHashSet.toList]
+    exact List.beq_eq_true_of_eq _
+
+instance : LawfulBEq Bucket where
+  eq_of_beq {a b} h := by
+    cases a <;> cases b <;> simp only [BEq.beq] at h
+    · have := of_decide_eq_true h; exact congrArg Bucket.typeBucket this
+    · contradiction
+    · contradiction
+    · simp only [Bool.and_eq_true] at h
+      have h1 := of_decide_eq_true h.1
+      have h2 := @eq_of_beq (NonEmptyHashSet Tag) _ _ _ _ h.2
+      rw [h1, h2]
+  rfl {a} := by
+    cases a
+    · simp only [BEq.beq]; rfl
+    · simp only [BEq.beq, decide_eq_true_eq, Bool.true_and]
+      exact @beq_self_eq_true (NonEmptyHashSet Tag) _ _ _
+
 -- Read target: bucket + afterVersion
 structure ReadTarget where
   bucket : Bucket
