@@ -1,4 +1,4 @@
-import DCBConflict.Basic
+import DCBConflict.Model
 import DCBConflict.Matching
 
 namespace DCBConflict
