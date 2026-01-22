@@ -116,7 +116,7 @@ instance : LawfulBEq Bucket where
   rfl {a} := by
     cases a
     · simp only [BEq.beq]; rfl
-    · simp only [BEq.beq, decide_eq_true_eq, Bool.true_and]
+    · simp only [BEq.beq]
       exact @beq_self_eq_true (NonEmptyHashSet Tag) _ _ _
 
 -- Read target: bucket + afterVersion

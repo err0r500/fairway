@@ -1,20 +1,7 @@
-import DCBConflict.Basic
+import DCBConflict.Model
 import Std.Data.HashSet.Lemmas
 
 namespace DCBConflict
-
--- Subset for HashSet
-def HashSet.subset (a b : Std.HashSet Tag) : Prop := ∀ x ∈ a, x ∈ b
-infix:50 " ⊆ₕ " => HashSet.subset
-
--- Decidable via all
-instance (a b : Std.HashSet Tag) : Decidable (a ⊆ₕ b) :=
-  if h : a.all (b.contains ·) then
-    isTrue (fun x hx => Std.HashSet.mem_iff_contains.mpr
-      (Std.HashSet.all_eq_true_iff_forall_mem.mp h x hx))
-  else
-    isFalse (fun hsub => h (Std.HashSet.all_eq_true_iff_forall_mem.mpr
-      (fun x hx => Std.HashSet.mem_iff_contains.mp (hsub x hx))))
 
 -- Membership for NonEmptyHashSet
 def NonEmptyHashSet.contains {α : Type} [BEq α] [Hashable α] (s : NonEmptyHashSet α) (x : α) : Bool :=
