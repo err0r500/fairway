@@ -10,8 +10,9 @@ type DcbStore interface {
 }
 ```
 
-## Additional docs 
+## Additional docs
 - [foundationdb eventstore layout](./_doc/fdb_storage.md)
+- [lean4 verification that foundationdb conflict detection is leverage appropriately](./_doc/lean4/README.md)
 - [how read iterator is kept memory efficient](./_doc/read_streaming_design.md)
 
 ## Development
