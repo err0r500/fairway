@@ -97,8 +97,5 @@ func (cmd command) Run(ctx context.Context, ev fairway.EventReadAppender) error 
 		return conflictErr
 	}
 
-	return ev.AppendEvents(ctx,
-		fairway.TaggedEvent(
-			event.UserRegistered{Id: cmd.id, Name: cmd.name, Email: cmd.email, Password: cmd.password},
-		))
+	return ev.AppendEvents(ctx, event.NewUserRegistered(cmd.id, cmd.name, cmd.email, cmd.password))
 }

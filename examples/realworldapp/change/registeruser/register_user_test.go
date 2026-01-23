@@ -36,12 +36,7 @@ func TestRegisterUser_Success(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusCreated, resp.StatusCode())
 	assert.Empty(t, string(resp.Bytes()))
-	then.ExpectEventsInStore(t, store, event.UserRegistered{
-		Id:       userId,
-		Name:     username,
-		Email:    email,
-		Password: password,
-	})
+	then.ExpectEventsInStore(t, store, event.NewUserRegistered(userId, username, email, password))
 }
 
 func TestRegisterUser_ConflictById(t *testing.T) {
@@ -100,7 +95,7 @@ func TestRegisterUser_ConflictByUsername(t *testing.T) {
 
 	// Given
 	username := "takenuser"
-	initialEvent := event.UserRegistered{Id: "user-1", Name: username, Email: "existing@example.com", Password: "pass"}
+	initialEvent := event.NewUserRegistered("user-1", username, "existing@example.com", "pass")
 	given.EventsInStore(store, initialEvent)
 
 	// When

@@ -1,5 +1,11 @@
 # RealWorld App
 
+## Run the server
+```
+go generate ./...
+go run .
+```
+
 ## Event Modeling
 
 differences with the original API :
