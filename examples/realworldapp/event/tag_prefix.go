@@ -11,3 +11,11 @@ func UserNameTagPrefix(name string) string {
 func UserEmailTagPrefix(email string) string {
 	return "email:" + email
 }
+
+func PreviousUserNameTagPrefix(name string) string {
+	return "previous_username:" + name
+}
+
+func PreviousUserEmailTagPrefix(email string) string {
+	return "previous_email:" + email
+}

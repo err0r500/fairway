@@ -82,83 +82,110 @@ type command struct {
 	hashedPassword string
 }
 
-func (cmd command) Run(ctx context.Context, ev fairway.EventReadAppender) error {
-	var userExists bool
-	var currentUsername, currentEmail string
+type currentUserState struct {
+	username string
+	email    string
+}
 
-	queryItems := []fairway.QueryItem{
+func (cmd command) Run(ctx context.Context, ev fairway.EventReadAppender) error {
+	var currentUser *currentUserState
+	otherHasUsername := make(map[string]bool) // other userId -> currently has target username
+	otherHasEmail := make(map[string]bool)    // other userId -> currently has target email
+
+	if err := ev.ReadEvents(ctx, fairway.QueryItems(
+		// current user's events
 		fairway.NewQueryItem().
 			Types(event.UserRegistered{}, event.UserChangedTheirName{}, event.UserChangedTheirEmail{}).
 			Tags(event.UserIdTagPrefix(cmd.userID)),
+		// events touching target username (current holders)
 		fairway.NewQueryItem().
 			Types(event.UserRegistered{}, event.UserChangedTheirName{}).
 			Tags(event.UserNameTagPrefix(cmd.username)),
+		// events where someone changed AWAY from target username
+		fairway.NewQueryItem().
+			Types(event.UserChangedTheirName{}).
+			Tags(event.PreviousUserNameTagPrefix(cmd.username)),
+		// events touching target email (current holders)
 		fairway.NewQueryItem().
 			Types(event.UserRegistered{}, event.UserChangedTheirEmail{}).
 			Tags(event.UserEmailTagPrefix(cmd.email)),
-	}
-
-	usernameConflict := false
-	emailConflict := false
-
-	if err := ev.ReadEvents(ctx, fairway.QueryItems(queryItems...),
-		func(te fairway.TaggedEvent) bool {
-			switch e := te.(type) {
-			case event.UserRegistered:
-				if e.Id == cmd.userID {
-					userExists = true
-					currentUsername = e.Name
-					currentEmail = e.Email
-				} else {
-					if e.Name == cmd.username {
-						usernameConflict = true
-					}
-					if e.Email == cmd.email {
-						emailConflict = true
-					}
+		// events where someone changed AWAY from target email
+		fairway.NewQueryItem().
+			Types(event.UserChangedTheirEmail{}).
+			Tags(event.PreviousUserEmailTagPrefix(cmd.email)),
+	), func(te fairway.TaggedEvent) bool {
+		switch e := te.(type) {
+		case event.UserRegistered:
+			if e.Id == cmd.userID {
+				currentUser = &currentUserState{username: e.Name, email: e.Email}
+			} else {
+				if e.Name == cmd.username {
+					otherHasUsername[e.Id] = true
 				}
-			case event.UserChangedTheirName:
-				if e.UserId == cmd.userID {
-					currentUsername = e.NewUsername
-				} else if e.NewUsername == cmd.username {
-					usernameConflict = true
-				}
-			case event.UserChangedTheirEmail:
-				if e.UserId == cmd.userID {
-					currentEmail = e.NewEmail
-				} else if e.NewEmail == cmd.email {
-					emailConflict = true
+				if e.Email == cmd.email {
+					otherHasEmail[e.Id] = true
 				}
 			}
-			return true
-		}); err != nil {
+		case event.UserChangedTheirName:
+			if e.UserId == cmd.userID {
+				if currentUser != nil {
+					currentUser.username = e.NewUsername
+				}
+			} else {
+				if e.NewUsername == cmd.username {
+					otherHasUsername[e.UserId] = true
+				} else if e.PreviousUsername == cmd.username {
+					otherHasUsername[e.UserId] = false
+				}
+			}
+		case event.UserChangedTheirEmail:
+			if e.UserId == cmd.userID {
+				if currentUser != nil {
+					currentUser.email = e.NewEmail
+				}
+			} else {
+				if e.NewEmail == cmd.email {
+					otherHasEmail[e.UserId] = true
+				} else if e.PreviousEmail == cmd.email {
+					otherHasEmail[e.UserId] = false
+				}
+			}
+		}
+		return true
+	}); err != nil {
 		return err
 	}
 
-	if !userExists {
+	if currentUser == nil {
 		return notFoundErr
 	}
 
-	if cmd.username != currentUsername && usernameConflict {
-		return conflictErr
+	for _, has := range otherHasUsername {
+		if has {
+			return conflictErr
+		}
 	}
-	if cmd.email != currentEmail && emailConflict {
-		return conflictErr
+	for _, has := range otherHasEmail {
+		if has {
+			return conflictErr
+		}
 	}
 
 	var events []fairway.TaggedEvent
 
-	if cmd.username != currentUsername {
+	if cmd.username != currentUser.username {
 		events = append(events, event.UserChangedTheirName{
-			UserId:      cmd.userID,
-			NewUsername: cmd.username,
+			UserId:           cmd.userID,
+			PreviousUsername: currentUser.username,
+			NewUsername:      cmd.username,
 		})
 	}
 
-	if cmd.email != currentEmail {
+	if cmd.email != currentUser.email {
 		events = append(events, event.UserChangedTheirEmail{
-			UserId:   cmd.userID,
-			NewEmail: cmd.email,
+			UserId:        cmd.userID,
+			PreviousEmail: currentUser.email,
+			NewEmail:      cmd.email,
 		})
 	}
 

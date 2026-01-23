@@ -1,26 +1,30 @@
 package event
 
 type UserChangedTheirName struct {
-	UserId      string `json:"userId"`
-	NewUsername string `json:"newUsername"`
+	UserId           string `json:"userId"`
+	PreviousUsername string `json:"previousUsername"`
+	NewUsername      string `json:"newUsername"`
 }
 
 func (e UserChangedTheirName) Tags() []string {
 	return []string{
 		UserIdTagPrefix(e.UserId),
 		UserNameTagPrefix(e.NewUsername),
+		PreviousUserNameTagPrefix(e.PreviousUsername),
 	}
 }
 
 type UserChangedTheirEmail struct {
-	UserId   string `json:"userId"`
-	NewEmail string `json:"newEmail"`
+	UserId        string `json:"userId"`
+	PreviousEmail string `json:"previousEmail"`
+	NewEmail      string `json:"newEmail"`
 }
 
 func (e UserChangedTheirEmail) Tags() []string {
 	return []string{
 		UserIdTagPrefix(e.UserId),
 		UserEmailTagPrefix(e.NewEmail),
+		PreviousUserEmailTagPrefix(e.PreviousEmail),
 	}
 }
 
