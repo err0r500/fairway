@@ -1,6 +1,9 @@
 package crypto
 
 import (
+	"errors"
+	"net/http"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -44,4 +47,18 @@ func (s JwtService) Validate(tokenString string) (string, error) {
 	}
 
 	return userId, nil
+}
+
+func (s JwtService) ExtractUserID(r *http.Request) (string, error) {
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		return "", errors.New("missing authorization header")
+	}
+
+	parts := strings.SplitN(authHeader, " ", 2)
+	if len(parts) != 2 || parts[0] != "Token" {
+		return "", errors.New("invalid authorization header")
+	}
+
+	return s.Validate(parts[1])
 }

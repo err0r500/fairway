@@ -1,4 +1,4 @@
-package updateuser
+package changeuserauth
 
 import (
 	"context"
@@ -6,7 +6,6 @@ import (
 	"errors"
 	"net/http"
 	"os"
-	"strings"
 
 	"github.com/err0r500/fairway"
 	"github.com/err0r500/fairway/examples/realworldapp/change"
@@ -21,7 +20,7 @@ func init() {
 
 func Register(registry *fairway.HttpChangeRegistry) {
 	jwt := crypto.NewJwtService(os.Getenv("JWT_SECRET"))
-	registry.RegisterCommand("PUT /user", httpHandler(jwt))
+	registry.RegisterCommand("PUT /user/auth", httpHandler(jwt))
 }
 
 var (
@@ -33,14 +32,12 @@ type reqBody struct {
 	Username string `json:"username" validate:"required"`
 	Email    string `json:"email" validate:"required,email"`
 	Password string `json:"password" validate:"required"`
-	Bio      string `json:"bio"`
-	Image    string `json:"image"`
 }
 
 func httpHandler(jwtService crypto.JwtService) func(runner fairway.CommandRunner) http.HandlerFunc {
 	return func(runner fairway.CommandRunner) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
-			userID, err := extractUserID(r, jwtService)
+			userID, err := jwtService.ExtractUserID(r)
 			if err != nil {
 				w.WriteHeader(http.StatusUnauthorized)
 				return
@@ -58,8 +55,6 @@ func httpHandler(jwtService crypto.JwtService) func(runner fairway.CommandRunner
 				username:       req.Username,
 				email:          req.Email,
 				hashedPassword: crypto.Hash(req.Password),
-				bio:            req.Bio,
-				image:          req.Image,
 			}); err != nil {
 				if errors.Is(err, conflictErr) {
 					w.WriteHeader(http.StatusConflict)
@@ -80,37 +75,20 @@ func httpHandler(jwtService crypto.JwtService) func(runner fairway.CommandRunner
 	}
 }
 
-func extractUserID(r *http.Request, jwtService crypto.JwtService) (string, error) {
-	authHeader := r.Header.Get("Authorization")
-	if authHeader == "" {
-		return "", errors.New("missing authorization header")
-	}
-
-	parts := strings.SplitN(authHeader, " ", 2)
-	if len(parts) != 2 || parts[0] != "Token" {
-		return "", errors.New("invalid authorization header")
-	}
-
-	return jwtService.Validate(parts[1])
-}
-
 type command struct {
 	userID         string
 	username       string
 	email          string
 	hashedPassword string
-	bio            string
-	image          string
 }
 
 func (cmd command) Run(ctx context.Context, ev fairway.EventReadAppender) error {
 	var userExists bool
-	var currentUsername, currentEmail, currentBio, currentImage string
+	var currentUsername, currentEmail string
 
-	// Query user + potential conflicts
 	queryItems := []fairway.QueryItem{
 		fairway.NewQueryItem().
-			Types(event.UserRegistered{}, event.UserChangedTheirName{}, event.UserChangedTheirEmail{}, event.UserChangedDetails{}).
+			Types(event.UserRegistered{}, event.UserChangedTheirName{}, event.UserChangedTheirEmail{}).
 			Tags(event.UserIdTagPrefix(cmd.userID)),
 		fairway.NewQueryItem().
 			Types(event.UserRegistered{}, event.UserChangedTheirName{}).
@@ -151,15 +129,6 @@ func (cmd command) Run(ctx context.Context, ev fairway.EventReadAppender) error 
 				} else if e.NewEmail == cmd.email {
 					emailConflict = true
 				}
-			case event.UserChangedDetails:
-				if e.UserId == cmd.userID {
-					if e.Bio != nil {
-						currentBio = *e.Bio
-					}
-					if e.Image != nil {
-						currentImage = *e.Image
-					}
-				}
 			}
 			return true
 		}); err != nil {
@@ -170,7 +139,6 @@ func (cmd command) Run(ctx context.Context, ev fairway.EventReadAppender) error 
 		return notFoundErr
 	}
 
-	// Check conflicts only if value changed
 	if cmd.username != currentUsername && usernameConflict {
 		return conflictErr
 	}
@@ -178,7 +146,6 @@ func (cmd command) Run(ctx context.Context, ev fairway.EventReadAppender) error 
 		return conflictErr
 	}
 
-	// Emit events for changes
 	var events []fairway.TaggedEvent
 
 	if cmd.username != currentUsername {
@@ -195,21 +162,10 @@ func (cmd command) Run(ctx context.Context, ev fairway.EventReadAppender) error 
 		})
 	}
 
-	// Password: always emit since we can't compare hashes
 	events = append(events, event.UserChangedTheirPassword{
 		UserId:            cmd.userID,
 		NewHashedPassword: cmd.hashedPassword,
 	})
-
-	if cmd.bio != currentBio || cmd.image != currentImage {
-		bio := cmd.bio
-		image := cmd.image
-		events = append(events, event.UserChangedDetails{
-			UserId: cmd.userID,
-			Bio:    &bio,
-			Image:  &image,
-		})
-	}
 
 	return ev.AppendEvents(ctx, events...)
 }
