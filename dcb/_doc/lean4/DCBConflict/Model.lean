@@ -1,5 +1,4 @@
 import Std.Data.HashSet
-import Std.Data.ExtHashSet
 
 namespace DCBConflict
 
@@ -7,29 +6,29 @@ abbrev Tag := String
 abbrev EventType := String
 abbrev Version := Nat
 
-structure NonEmptyHashSet (α : Type) [BEq α] [Hashable α] where
+structure NonEmptyList (α : Type) where
   head : α
-  rest : Std.HashSet α
+  tail : List α
+
+def NonEmptyList.toList {α : Type} (s : NonEmptyList α) : List α := s.head :: s.tail
+
+instance {α : Type} [BEq α] : BEq (NonEmptyList α) where
+  beq a b := a.head == b.head && a.tail == b.tail
+
+instance {α : Type} [Hashable α] : Hashable (NonEmptyList α) where
+  hash s := hash s.toList
 
 -- Event: type, tags, version (monotonically increasing id)
 structure Event where
   type : EventType
-  tags : Std.HashSet Tag
+  tags : List Tag
   version : Version
 
 -- Query item: sum type for different query patterns
 inductive QueryItem where
-  | typeOnly (types : NonEmptyHashSet EventType)
-  | tagsOnly (tags : NonEmptyHashSet Tag)
-  | typesAndTags (types : NonEmptyHashSet EventType) (tags : NonEmptyHashSet Tag)
-
-def NonEmptyHashSet.toList {α : Type} [BEq α] [Hashable α] (s : NonEmptyHashSet α) : List α := s.head :: s.rest.toList
-
-instance {α : Type} [BEq α] [Hashable α] : BEq (NonEmptyHashSet α) where
-  beq a b := a.toList == b.toList
-
-instance {α : Type} [BEq α] [Hashable α] : Hashable (NonEmptyHashSet α) where
-  hash s := hash s.toList
+  | typeOnly (types : NonEmptyList EventType)
+  | tagsOnly (tags : NonEmptyList Tag)
+  | typesAndTags (types : NonEmptyList EventType) (tags : NonEmptyList Tag)
 
 instance : BEq QueryItem where
   beq a b := match a, b with
@@ -51,7 +50,7 @@ structure Query where
 
 inductive Bucket where
   | typeBucket (type : EventType)
-  | tagBucket (type : EventType) (tags : NonEmptyHashSet Tag)
+  | tagBucket (type : EventType) (tags : NonEmptyList Tag)
 
 instance : BEq Bucket where
   beq a b := match a, b with
@@ -64,13 +63,14 @@ instance : Hashable Bucket where
     | .typeBucket t => hash (0, t)
     | .tagBucket t g => hash (1, t, g)
 
--- Helper lemma for List BEq
-theorem List.beq_eq_true_of_eq {α : Type} [BEq α] [LawfulBEq α] (l : List α) : l.beq l = true := by
+-- List.beq reflexivity
+theorem List.beq_refl {α : Type} [BEq α] [LawfulBEq α] (l : List α) : l.beq l = true := by
   induction l with
   | nil => rfl
   | cons h t ih => simp only [List.beq, beq_self_eq_true, Bool.true_and, ih]
 
-theorem List.eq_of_beq_eq_true {α : Type} [BEq α] [LawfulBEq α] {l1 l2 : List α}
+-- List.beq implies equality
+theorem List.eq_of_beq' {α : Type} [BEq α] [LawfulBEq α] {l1 l2 : List α}
     (h : l1.beq l2 = true) : l1 = l2 := by
   induction l1 generalizing l2 with
   | nil =>
@@ -82,42 +82,53 @@ theorem List.eq_of_beq_eq_true {α : Type} [BEq α] [LawfulBEq α] {l1 l2 : List
     | nil => contradiction
     | cons h2 t2 =>
       simp only [List.beq, Bool.and_eq_true] at h
-      have hhead := eq_of_beq h.1
-      have htail := ih h.2
-      rw [hhead, htail]
+      simp only [eq_of_beq h.1, ih h.2]
 
--- LawfulBEq for NonEmptyHashSet (using axiom for HashSet equality)
-axiom Std.HashSet.eq_of_toList_eq {α : Type} [BEq α] [Hashable α] [LawfulBEq α]
-    {a b : Std.HashSet α} (h : a.toList = b.toList) : a = b
+-- For NonEmptyList: convert between head == and decide (head =)
+theorem NonEmptyList.eq_of_components {α : Type} {a b : NonEmptyList α}
+    (h1 : a.head = b.head) (h2 : a.tail = b.tail) : a = b := by
+  cases a; cases b; simp only at h1 h2; simp only [h1, h2]
 
-instance {α : Type} [BEq α] [Hashable α] [LawfulBEq α] : LawfulBEq (NonEmptyHashSet α) where
-  eq_of_beq {a b} h := by
-    simp only [BEq.beq, NonEmptyHashSet.toList] at h
-    have hlist := List.eq_of_beq_eq_true h
-    cases a; cases b
-    simp only [List.cons.injEq] at hlist
-    congr
-    · exact hlist.1
-    · exact Std.HashSet.eq_of_toList_eq hlist.2
-  rfl {a} := by
-    simp only [BEq.beq, NonEmptyHashSet.toList]
-    exact List.beq_eq_true_of_eq _
+theorem NonEmptyList.eq_of_beq {α : Type} [BEq α] [inst : LawfulBEq α] {a b : NonEmptyList α}
+    (h : (a == b) = true) : a = b := by
+  have h' : (a.head == b.head && a.tail.beq b.tail) = true := h
+  simp only [Bool.and_eq_true] at h'
+  have h1 : a.head = b.head := @LawfulBEq.eq_of_beq α _ inst _ _ h'.1
+  have h2 : a.tail = b.tail := List.eq_of_beq' h'.2
+  exact NonEmptyList.eq_of_components h1 h2
+
+theorem NonEmptyList.beq_rfl {α : Type} [BEq α] [LawfulBEq α] (a : NonEmptyList α) :
+    (a == a) = true := by
+  simp only [BEq.beq, beq_self_eq_true, List.beq_refl, Bool.and_self]
+
+instance {α : Type} [BEq α] [LawfulBEq α] : LawfulBEq (NonEmptyList α) where
+  eq_of_beq := NonEmptyList.eq_of_beq
+  rfl := NonEmptyList.beq_rfl _
+
+-- For Bucket: need to handle the expanded form where String uses decide
+theorem NonEmptyList.eq_of_beq_expanded {a b : NonEmptyList Tag}
+    (h1 : decide (a.head = b.head) = true) (h2 : a.tail.beq b.tail = true) : a = b := by
+  have hhead : a.head = b.head := of_decide_eq_true h1
+  have htail : a.tail = b.tail := List.eq_of_beq' h2
+  exact NonEmptyList.eq_of_components hhead htail
+
+theorem NonEmptyList.beq_rfl_expanded (a : NonEmptyList Tag) :
+    a.tail.beq a.tail = true := List.beq_refl a.tail
 
 instance : LawfulBEq Bucket where
   eq_of_beq {a b} h := by
     cases a <;> cases b <;> simp only [BEq.beq] at h
-    · have := of_decide_eq_true h; exact congrArg Bucket.typeBucket this
+    · exact congrArg Bucket.typeBucket (of_decide_eq_true h)
     · contradiction
     · contradiction
     · simp only [Bool.and_eq_true] at h
       have h1 := of_decide_eq_true h.1
-      have h2 := @eq_of_beq (NonEmptyHashSet Tag) _ _ _ _ h.2
-      rw [h1, h2]
+      have h2 := NonEmptyList.eq_of_beq_expanded h.2.1 h.2.2
+      simp only [h1, h2]
   rfl {a} := by
     cases a
-    · simp only [BEq.beq]; rfl
-    · simp only [BEq.beq]
-      exact @beq_self_eq_true (NonEmptyHashSet Tag) _ _ _
+    · simp only [BEq.beq, decide_true]
+    · simp only [BEq.beq, decide_true, Bool.true_and, NonEmptyList.beq_rfl_expanded]
 
 -- Read target: bucket + afterVersion
 structure ReadTarget where

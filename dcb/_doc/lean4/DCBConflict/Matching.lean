@@ -1,18 +1,17 @@
 import DCBConflict.Model
-import Std.Data.HashSet.Lemmas
 
 namespace DCBConflict
 
--- Membership for NonEmptyHashSet
-def NonEmptyHashSet.contains {α : Type} [BEq α] [Hashable α] (s : NonEmptyHashSet α) (x : α) : Bool :=
-  s.head == x || s.rest.contains x
+-- Membership for NonEmptyList
+def NonEmptyList.contains {α : Type} [BEq α] (s : NonEmptyList α) (x : α) : Bool :=
+  s.head == x || s.tail.contains x
 
-  instance {α : Type} [BEq α] [Hashable α] : Membership α (NonEmptyHashSet α) where
-    mem x s := x.contains s
+instance {α : Type} [BEq α] : Membership α (NonEmptyList α) where
+  mem elem container := NonEmptyList.contains elem container
 
--- Subset for NonEmptyHashSet to HashSet
-def NonEmptyHashSet.subsetOf {α : Type} [BEq α] [Hashable α] (a : NonEmptyHashSet α) (b : Std.HashSet α) : Bool :=
-  b.contains a.head && a.rest.all b.contains
+-- Subset: all elements of NonEmptyList are in the target List
+def NonEmptyList.subsetOf {α : Type} [BEq α] (a : NonEmptyList α) (b : List α) : Bool :=
+  b.contains a.head && a.tail.all b.contains
 
 -- Event matches a query item
 def matchesItem (e : Event) (item : QueryItem) : Bool :=

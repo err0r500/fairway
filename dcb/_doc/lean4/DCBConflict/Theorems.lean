@@ -3,98 +3,134 @@ import DCBConflict.Matching
 import DCBConflict.Operations
 import DCBConflict.Lemmas
 
-
 namespace DCBConflict
 
--- Completeness: if event matches query -> conflict is detected
+/-- Completeness: if an event matches a query, conflict is detected.
+    Forward direction of the main theorem (no false negatives). -/
 theorem completeness (e : Event) (q : Query) (h : matchesQuery e q) : conflictDetected e q := by
-  obtain ⟨hv, item, hitem, hmatch⟩ := h
-  unfold conflictDetected
-  match item with
-  | .typeOnly types =>
-    -- types.contains e.type = true, so typeBucket e.type matches
-    simp only [matchesItem] at hmatch
-    refine ⟨Bucket.typeBucket e.type, typeBucket_in_writeBuckets e, ?_⟩
-    refine ⟨⟨Bucket.typeBucket e.type, q.afterVersion⟩, ?_, rfl, hv⟩
-    apply readTarget_in_readTargets _ _ _ hitem
+  obtain ⟨hversion, item, hitem_mem, hitem_match⟩ := h
+  simp only [conflictDetected]
+  cases item with
+  | typeOnly types =>
+    simp only [matchesItem] at hitem_match
+    have htype_mem := NonEmptyList.contains_mem_toList types e.type hitem_match
+    refine ⟨Bucket.typeBucket e.type, typeBucket_mem_writeBuckets e, ?_⟩
+    refine ⟨⟨Bucket.typeBucket e.type, q.afterVersion⟩, ?_, rfl, hversion⟩
+    simp only [readTargets, List.mem_flatMap]
+    refine ⟨QueryItem.typeOnly types, hitem_mem, ?_⟩
     simp only [readTargetsItem, List.mem_map]
-    exact ⟨e.type, NonEmptyHashSet.contains_mem_toList types e.type hmatch, rfl⟩
-  | .tagsOnly tags =>
-    -- tags.subsetOf e.tags = true, find matching s in powerset
-    simp only [matchesItem] at hmatch
-    obtain ⟨s, hs_in_pow, hs_same⟩ := sameElements_exists_in_powerset tags e.tags hmatch
-    refine ⟨Bucket.tagBucket e.type s, powerset_tagBucket_in_writeBuckets e s hs_in_pow, ?_⟩
-    refine ⟨⟨Bucket.tagBucket e.type s, q.afterVersion⟩, ?_, rfl, hv⟩
-    apply readTarget_in_readTargets _ _ _ hitem
+    exact ⟨e.type, htype_mem, rfl⟩
+
+  | tagsOnly tags =>
+    simp only [matchesItem] at hitem_match
+    have htags_subset : ∀ x ∈ tags.toList, x ∈ e.tags := by
+      intro x hx
+      simp only [NonEmptyList.subsetOf, Bool.and_eq_true] at hitem_match
+      simp only [NonEmptyList.toList, List.mem_cons] at hx
+      cases hx with
+      | inl h => exact h ▸ List.elem_iff.mp hitem_match.1
+      | inr h => exact List.elem_iff.mp (List.all_eq_true.mp hitem_match.2 x h)
+    obtain ⟨s, hs_pow, hs_same⟩ := subset_in_powerset e.tags tags htags_subset
+    have hwb : Bucket.tagBucket e.type s ∈ (writeBuckets e).toList := by
+      simp only [writeBuckets, NonEmptyList.toList, List.mem_cons, List.mem_map]
+      right; exact ⟨s, hs_pow, rfl⟩
+    refine ⟨Bucket.tagBucket e.type s, hwb, ?_⟩
+    refine ⟨⟨Bucket.tagBucket e.type s, q.afterVersion⟩, ?_, rfl, hversion⟩
+    simp only [readTargets, List.mem_flatMap]
+    refine ⟨QueryItem.tagsOnly tags, hitem_mem, ?_⟩
     simp only [readTargetsItem, List.mem_map, List.mem_filter]
-    exact ⟨s, ⟨hs_in_pow, hs_same⟩, rfl⟩
-  | .typesAndTags types tags =>
-    -- types.contains e.type ∧ tags.subsetOf e.tags
-    simp only [matchesItem, Bool.and_eq_true] at hmatch
-    obtain ⟨htype, htags⟩ := hmatch
-    obtain ⟨s, hs_in_pow, hs_same⟩ := sameElements_exists_in_powerset tags e.tags htags
-    refine ⟨Bucket.tagBucket e.type s, powerset_tagBucket_in_writeBuckets e s hs_in_pow, ?_⟩
-    refine ⟨⟨Bucket.tagBucket e.type s, q.afterVersion⟩, ?_, rfl, hv⟩
-    apply readTarget_in_readTargets _ _ _ hitem
-    simp only [readTargetsItem, List.mem_flatMap, List.mem_map, List.mem_filter]
-    exact ⟨s, ⟨hs_in_pow, hs_same⟩, e.type, NonEmptyHashSet.contains_mem_toList types e.type htype, rfl⟩
+    exact ⟨s, ⟨hs_pow, hs_same⟩, rfl⟩
 
--- Precision: if conflict detected -> event matches query
+  | typesAndTags types tags =>
+    simp only [matchesItem, Bool.and_eq_true] at hitem_match
+    have htypes := hitem_match.1
+    have htags := hitem_match.2
+    have htype_mem := NonEmptyList.contains_mem_toList types e.type htypes
+    have htags_subset : ∀ x ∈ tags.toList, x ∈ e.tags := by
+      intro x hx
+      simp only [NonEmptyList.subsetOf, Bool.and_eq_true] at htags
+      simp only [NonEmptyList.toList, List.mem_cons] at hx
+      cases hx with
+      | inl h => exact h ▸ List.elem_iff.mp htags.1
+      | inr h => exact List.elem_iff.mp (List.all_eq_true.mp htags.2 x h)
+    obtain ⟨s, hs_pow, hs_same⟩ := subset_in_powerset e.tags tags htags_subset
+    have hwb : Bucket.tagBucket e.type s ∈ (writeBuckets e).toList := by
+      simp only [writeBuckets, NonEmptyList.toList, List.mem_cons, List.mem_map]
+      right; exact ⟨s, hs_pow, rfl⟩
+    refine ⟨Bucket.tagBucket e.type s, hwb, ?_⟩
+    refine ⟨⟨Bucket.tagBucket e.type s, q.afterVersion⟩, ?_, rfl, hversion⟩
+    simp only [readTargets, List.mem_flatMap]
+    refine ⟨QueryItem.typesAndTags types tags, hitem_mem, ?_⟩
+    simp only [readTargetsItem, List.mem_flatMap, List.mem_filter, List.mem_map]
+    exact ⟨s, ⟨hs_pow, hs_same⟩, e.type, htype_mem, rfl⟩
+
+/-- Precision: if conflict is detected, the event matches the query.
+    Backward direction of the main theorem (no false positives). -/
 theorem precision (e : Event) (q : Query) (h : conflictDetected e q) : matchesQuery e q := by
-  obtain ⟨wb, hwb, rt, hrt, heq, hver⟩ := h
-  unfold matchesQuery
-  simp only [readTargets, List.mem_flatMap] at hrt
-  obtain ⟨item, hitem, hrt_item⟩ := hrt
-  have hv : rt.afterVersion = q.afterVersion := readTarget_afterVersion q e rt item hrt_item
-  refine ⟨?_, item, hitem, ?_⟩
-  · rw [← hv]; exact hver
-  · cases item with
-    | typeOnly types =>
-      simp only [matchesItem]
-      simp only [readTargetsItem, List.mem_map] at hrt_item
-      obtain ⟨t, ht_in_types, hrt_eq⟩ := hrt_item
-      simp only [writeBuckets, NonEmptyHashSet.toList] at hwb
-      cases hwb with
-      | head _ =>
-        rw [← hrt_eq] at heq
-        injection heq with h_type
-        rw [← h_type] at ht_in_types
-        exact NonEmptyHashSet.toList_mem_contains types e.type ht_in_types
-      | tail _ hwb' =>
-        rw [← hrt_eq] at heq
-        obtain ⟨s, _, hs_eq⟩ := tagBucket_of_mem_ofList e wb hwb'
-        rw [hs_eq] at heq
-        contradiction
-    | tagsOnly tags =>
-      simp only [matchesItem]
-      simp only [readTargetsItem, List.mem_map, List.mem_filter] at hrt_item
-      obtain ⟨s, ⟨hs_in_pow, hs_same⟩, hrt_eq⟩ := hrt_item
-      rw [← hrt_eq] at heq
-      simp only [writeBuckets, NonEmptyHashSet.toList] at hwb
-      cases hwb with
-      | head _ => contradiction
-      | tail _ hwb' =>
-        have hs_subset := powerset_elem_subset e.tags.toList s hs_in_pow
-        exact sameElements_subsetOf tags s e.tags hs_same hs_subset
-    | typesAndTags types tags =>
-      simp only [matchesItem, Bool.and_eq_true]
-      simp only [readTargetsItem, List.mem_flatMap, List.mem_map, List.mem_filter] at hrt_item
-      obtain ⟨s, ⟨hs_in_pow, hs_same⟩, t, ht_in_types, hrt_eq⟩ := hrt_item
-      rw [← hrt_eq] at heq
-      simp only at heq
-      simp only [writeBuckets, NonEmptyHashSet.toList] at hwb
-      cases hwb with
-      | head _ => contradiction
-      | tail _ hwb' =>
-        obtain ⟨s', _, hs'_eq⟩ := tagBucket_of_mem_ofList e wb hwb'
-        constructor
-        · have h_type := tagBucket_type_eq t s s' e.type (heq.symm.trans hs'_eq)
-          rw [h_type] at ht_in_types
-          exact NonEmptyHashSet.toList_mem_contains types e.type ht_in_types
-        · have hs_subset := powerset_elem_subset e.tags.toList s hs_in_pow
-          exact sameElements_subsetOf tags s e.tags hs_same hs_subset
+  obtain ⟨wb, hwb_mem, rt, hrt_mem, hwb_eq, hversion⟩ := h
+  simp only [matchesQuery]
+  simp only [readTargets, List.mem_flatMap] at hrt_mem
+  obtain ⟨item, hitem_mem, hrt_item⟩ := hrt_mem
+  -- First show version condition
+  have hv : e.version > q.afterVersion := by
+    cases item <;> simp only [readTargetsItem, List.mem_map, List.mem_filter, List.mem_flatMap] at hrt_item
+    · obtain ⟨_, _, rfl⟩ := hrt_item; exact hversion
+    · obtain ⟨_, ⟨_, _⟩, rfl⟩ := hrt_item; exact hversion
+    · obtain ⟨_, ⟨_, _⟩, _, _, rfl⟩ := hrt_item; exact hversion
+  refine ⟨hv, item, hitem_mem, ?_⟩
+  cases item with
+  | typeOnly types =>
+    simp only [readTargetsItem, List.mem_map] at hrt_item
+    obtain ⟨t, ht_mem, hrt_eq⟩ := hrt_item
+    simp only [writeBuckets, NonEmptyList.toList, List.mem_cons, List.mem_map] at hwb_mem
+    simp only [matchesItem]
+    rcases hwb_mem with rfl | ⟨s, _, rfl⟩
+    · -- wb = typeBucket e.type, rt.bucket = typeBucket t
+      simp only [← hrt_eq] at hwb_eq
+      simp only [Bucket.typeBucket.injEq] at hwb_eq
+      rw [hwb_eq]
+      exact NonEmptyList.mem_toList_contains types t ht_mem
+    · -- wb = tagBucket, rt.bucket = typeBucket t - contradiction
+      simp only [← hrt_eq] at hwb_eq
+      exact absurd hwb_eq (by simp)
 
--- Main theorem
+  | tagsOnly tags =>
+    simp only [readTargetsItem, List.mem_map, List.mem_filter] at hrt_item
+    obtain ⟨s, ⟨hs_pow, hs_same⟩, hrt_eq⟩ := hrt_item
+    simp only [writeBuckets, NonEmptyList.toList, List.mem_cons, List.mem_map] at hwb_mem
+    simp only [matchesItem]
+    rcases hwb_mem with rfl | ⟨s', hs'_pow, rfl⟩
+    · -- wb = typeBucket, rt.bucket = tagBucket - contradiction
+      simp only [← hrt_eq] at hwb_eq
+      exact absurd hwb_eq (by simp)
+    · -- wb = tagBucket e.type s', rt.bucket = tagBucket e.type s
+      simp only [← hrt_eq, Bucket.tagBucket.injEq] at hwb_eq
+      obtain ⟨_, hs_eq⟩ := hwb_eq
+      have hs'_eq_s : s' = s := eq_of_beq (hs_eq ▸ NonEmptyList.beq_rfl s)
+      rw [hs'_eq_s] at hs'_pow
+      exact sameElements_powerset_subsetOf tags s e.tags hs_pow hs_same
+
+  | typesAndTags types tags =>
+    simp only [readTargetsItem, List.mem_flatMap, List.mem_filter, List.mem_map] at hrt_item
+    obtain ⟨s, ⟨hs_pow, hs_same⟩, t, ht_mem, hrt_eq⟩ := hrt_item
+    simp only [writeBuckets, NonEmptyList.toList, List.mem_cons, List.mem_map] at hwb_mem
+    simp only [matchesItem, Bool.and_eq_true]
+    rcases hwb_mem with rfl | ⟨s', hs'_pow, rfl⟩
+    · -- wb = typeBucket, rt.bucket = tagBucket t s - contradiction
+      simp only [← hrt_eq] at hwb_eq
+      exact absurd hwb_eq (by simp)
+    · -- wb = tagBucket e.type s', rt.bucket = tagBucket t s
+      simp only [← hrt_eq, Bucket.tagBucket.injEq] at hwb_eq
+      obtain ⟨htype_eq, hs_eq⟩ := hwb_eq
+      have hs'_eq_s : s' = s := eq_of_beq (hs_eq ▸ NonEmptyList.beq_rfl s)
+      rw [hs'_eq_s] at hs'_pow
+      constructor
+      · rw [htype_eq]
+        exact NonEmptyList.mem_toList_contains types t ht_mem
+      · exact sameElements_powerset_subsetOf tags s e.tags hs_pow hs_same
+
+/-- Main theorem: matchesQuery and conflictDetected are equivalent.
+    Proves the DCB conflict detection mechanism is both complete and precise. -/
 theorem conflict_iff_matches (e : Event) (q : Query) : matchesQuery e q ↔ conflictDetected e q :=
   ⟨completeness e q, precision e q⟩
 
