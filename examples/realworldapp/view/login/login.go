@@ -3,7 +3,6 @@ package login
 import (
 	"encoding/json"
 	"net/http"
-	"os"
 
 	"github.com/err0r500/fairway"
 	"github.com/err0r500/fairway/examples/realworldapp/crypto"
@@ -17,8 +16,7 @@ func init() {
 }
 
 func Register(registry *fairway.HttpViewRegistry) {
-	jwt := crypto.NewJwtService(os.Getenv("JWT_SECRET"))
-	registry.RegisterReadModel("POST /users/login", httpHandler(jwt))
+	registry.RegisterReadModel("POST /users/login", httpHandler)
 }
 
 type reqBody struct {
@@ -30,54 +28,52 @@ type respBody struct {
 	Token string `json:"token"`
 }
 
-func httpHandler(jwtService crypto.JwtService) func(reader fairway.EventsReader) http.HandlerFunc {
-	return func(reader fairway.EventsReader) http.HandlerFunc {
-		return func(w http.ResponseWriter, r *http.Request) {
-			var req reqBody
-			if err := utils.JsonParse(r, &req); err != nil {
-				w.WriteHeader(http.StatusBadRequest)
-				json.NewEncoder(w).Encode(err.Error())
-				return
-			}
-
-			var foundUser *event.UserRegistered
-			if err := reader.ReadEvents(r.Context(),
-				fairway.QueryItems(
-					fairway.NewQueryItem().
-						Types(event.UserRegistered{}).
-						Tags(event.UserEmailTagPrefix(req.Email)),
-				),
-				func(te fairway.TaggedEvent) bool {
-					if u, ok := te.(event.UserRegistered); ok {
-						foundUser = &u
-						return false
-					}
-					return true
-				}); err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				json.NewEncoder(w).Encode(err.Error())
-				return
-			}
-
-			if foundUser == nil {
-				w.WriteHeader(http.StatusUnauthorized)
-				return
-			}
-
-			if !crypto.HashMatchesCleartext(foundUser.HashedPassword, req.Password) {
-				w.WriteHeader(http.StatusUnauthorized)
-				return
-			}
-
-			token, err := jwtService.Token(foundUser.Id)
-			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				json.NewEncoder(w).Encode(err.Error())
-				return
-			}
-
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(respBody{Token: token})
+func httpHandler(reader fairway.EventsReader) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req reqBody
+		if err := utils.JsonParse(r, &req); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(err.Error())
+			return
 		}
+
+		var foundUser *event.UserRegistered
+		if err := reader.ReadEvents(r.Context(),
+			fairway.QueryItems(
+				fairway.NewQueryItem().
+					Types(event.UserRegistered{}).
+					Tags(event.UserEmailTagPrefix(req.Email)),
+			),
+			func(te fairway.TaggedEvent) bool {
+				if u, ok := te.(event.UserRegistered); ok {
+					foundUser = &u
+					return false
+				}
+				return true
+			}); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(err.Error())
+			return
+		}
+
+		if foundUser == nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		if !crypto.HashMatchesCleartext(foundUser.HashedPassword, req.Password) {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		token, err := crypto.JwtService.Token(foundUser.Id)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(err.Error())
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(respBody{Token: token})
 	}
 }

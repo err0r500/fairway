@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"os"
 
 	"github.com/err0r500/fairway"
 	"github.com/err0r500/fairway/examples/realworldapp/change"
@@ -19,8 +18,7 @@ func init() {
 }
 
 func Register(registry *fairway.HttpChangeRegistry) {
-	jwt := crypto.NewJwtService(os.Getenv("JWT_SECRET"))
-	registry.RegisterCommand("PUT /user/auth", httpHandler(jwt))
+	registry.RegisterCommand("PUT /user/auth", httpHandler)
 }
 
 var (
@@ -34,44 +32,42 @@ type reqBody struct {
 	Password string `json:"password" validate:"required"`
 }
 
-func httpHandler(jwtService crypto.JwtService) func(runner fairway.CommandRunner) http.HandlerFunc {
-	return func(runner fairway.CommandRunner) http.HandlerFunc {
-		return func(w http.ResponseWriter, r *http.Request) {
-			userID, err := jwtService.ExtractUserID(r)
-			if err != nil {
-				w.WriteHeader(http.StatusUnauthorized)
-				return
-			}
-
-			var req reqBody
-			if err := utils.JsonParse(r, &req); err != nil {
-				w.WriteHeader(http.StatusBadRequest)
-				json.NewEncoder(w).Encode(err.Error())
-				return
-			}
-
-			if err := runner.RunPure(r.Context(), command{
-				userID:         userID,
-				username:       req.Username,
-				email:          req.Email,
-				hashedPassword: crypto.Hash(req.Password),
-			}); err != nil {
-				if errors.Is(err, conflictErr) {
-					w.WriteHeader(http.StatusConflict)
-					return
-				}
-				if errors.Is(err, notFoundErr) {
-					w.WriteHeader(http.StatusNotFound)
-					return
-				}
-
-				w.WriteHeader(http.StatusInternalServerError)
-				json.NewEncoder(w).Encode(err.Error())
-				return
-			}
-
-			w.WriteHeader(http.StatusNoContent)
+func httpHandler(runner fairway.CommandRunner) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, err := crypto.JwtService.ExtractUserID(r)
+		if err != nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
 		}
+
+		var req reqBody
+		if err := utils.JsonParse(r, &req); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(err.Error())
+			return
+		}
+
+		if err := runner.RunPure(r.Context(), command{
+			userID:         userID,
+			username:       req.Username,
+			email:          req.Email,
+			hashedPassword: crypto.Hash(req.Password),
+		}); err != nil {
+			if errors.Is(err, conflictErr) {
+				w.WriteHeader(http.StatusConflict)
+				return
+			}
+			if errors.Is(err, notFoundErr) {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(err.Error())
+			return
+		}
+
+		w.WriteHeader(http.StatusNoContent)
 	}
 }
 

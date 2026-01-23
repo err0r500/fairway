@@ -106,8 +106,7 @@ func freshSetup(t *testing.T) (dcb.DcbStore, *httptest.Server, *resty.Client) {
 }
 
 func generateToken(t *testing.T, userID string) string {
-	jwtService := crypto.NewJwtService("testsecret")
-	token, err := jwtService.Token(userID)
+	token, err := crypto.JwtService.Token(userID)
 	assert.NoError(t, err)
 	return token
 }
