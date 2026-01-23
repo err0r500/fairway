@@ -5,19 +5,16 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/err0r500/fairway"
-	"github.com/err0r500/fairway/dcb"
 	"github.com/err0r500/fairway/examples/realworldapp/change/changeuserdetails"
 	"github.com/err0r500/fairway/examples/realworldapp/crypto"
 	"github.com/err0r500/fairway/examples/realworldapp/event"
 	"github.com/err0r500/fairway/testing/given"
 	"github.com/stretchr/testify/assert"
-	"resty.dev/v3"
 )
 
 func TestChangeUserDetails_CanUpdateUsername(t *testing.T) {
 	t.Parallel()
-	store, server, httpClient := freshSetup(t)
+	store, server, httpClient := given.FreshSetup(t, changeuserdetails.Register)
 	currUserId := "user-1"
 	given.EventsInStore(store, event.UserRegistered{Id: currUserId, Name: "john", Email: "john@example.com", HashedPassword: "h"})
 
@@ -34,7 +31,7 @@ func TestChangeUserDetails_CanUpdateUsername(t *testing.T) {
 
 func TestChangeUserDetails_CannotUpdateUsernameToTaken(t *testing.T) {
 	t.Parallel()
-	store, server, httpClient := freshSetup(t)
+	store, server, httpClient := given.FreshSetup(t, changeuserdetails.Register)
 	currUserId := "user-1"
 	takenUsername := "taken"
 	given.EventsInStore(store,
@@ -55,7 +52,7 @@ func TestChangeUserDetails_CannotUpdateUsernameToTaken(t *testing.T) {
 
 func TestChangeUserDetails_CanUseReleasedUsername(t *testing.T) {
 	t.Parallel()
-	store, server, httpClient := freshSetup(t)
+	store, server, httpClient := given.FreshSetup(t, changeuserdetails.Register)
 	currUserId := "user-1"
 	otherUserId := "user-2"
 	releasedUsername := "oldname"
@@ -78,7 +75,7 @@ func TestChangeUserDetails_CanUseReleasedUsername(t *testing.T) {
 
 func TestChangeUserDetails_CanUpdateBio(t *testing.T) {
 	t.Parallel()
-	store, server, httpClient := freshSetup(t)
+	store, server, httpClient := given.FreshSetup(t, changeuserdetails.Register)
 	currUserId := "user-1"
 	given.EventsInStore(store, event.UserRegistered{Id: currUserId, Name: "john", Email: "john@example.com", HashedPassword: "h"})
 
@@ -95,7 +92,7 @@ func TestChangeUserDetails_CanUpdateBio(t *testing.T) {
 
 func TestChangeUserDetails_CanUpdateImage(t *testing.T) {
 	t.Parallel()
-	store, server, httpClient := freshSetup(t)
+	store, server, httpClient := given.FreshSetup(t, changeuserdetails.Register)
 	currUserId := "user-1"
 	given.EventsInStore(store, event.UserRegistered{Id: currUserId, Name: "john", Email: "john@example.com", HashedPassword: "h"})
 
@@ -112,7 +109,7 @@ func TestChangeUserDetails_CanUpdateImage(t *testing.T) {
 
 func TestChangeUserDetails_UnauthenticatedFails(t *testing.T) {
 	t.Parallel()
-	_, server, httpClient := freshSetup(t)
+	_, server, httpClient := given.FreshSetup(t, changeuserdetails.Register)
 
 	resp, err := httpClient.R().
 		SetBody(map[string]any{
@@ -126,7 +123,7 @@ func TestChangeUserDetails_UnauthenticatedFails(t *testing.T) {
 
 func TestChangeUserDetails_UserNotFoundFails(t *testing.T) {
 	t.Parallel()
-	_, server, httpClient := freshSetup(t)
+	_, server, httpClient := given.FreshSetup(t, changeuserdetails.Register)
 	nonexistentUserId := "nonexistent"
 
 	resp, err := httpClient.R().
@@ -142,7 +139,7 @@ func TestChangeUserDetails_UserNotFoundFails(t *testing.T) {
 
 func TestChangeUserDetails_EmptyBodySucceeds(t *testing.T) {
 	t.Parallel()
-	store, server, httpClient := freshSetup(t)
+	store, server, httpClient := given.FreshSetup(t, changeuserdetails.Register)
 	currUserId := "user-1"
 	given.EventsInStore(store, event.UserRegistered{Id: currUserId, Name: "john", Email: "john@example.com", HashedPassword: "h"})
 
@@ -153,24 +150,6 @@ func TestChangeUserDetails_EmptyBodySucceeds(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusNoContent, resp.StatusCode())
-}
-
-func freshSetup(t *testing.T) (dcb.DcbStore, *httptest.Server, *resty.Client) {
-	store := dcb.SetupTestStore(t)
-	runner := fairway.NewCommandRunner(store)
-	mux := http.NewServeMux()
-
-	registry := &fairway.HttpChangeRegistry{}
-	changeuserdetails.Register(registry)
-	registry.RegisterRoutes(mux, runner)
-
-	server := httptest.NewServer(mux)
-	httpClient := resty.New()
-	t.Cleanup(func() {
-		server.Close()
-		httpClient.Close()
-	})
-	return store, server, httpClient
 }
 
 func generateToken(t *testing.T, userID string) string {

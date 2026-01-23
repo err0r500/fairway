@@ -5,19 +5,16 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/err0r500/fairway"
-	"github.com/err0r500/fairway/dcb"
 	"github.com/err0r500/fairway/examples/realworldapp/change/changeuserauth"
 	"github.com/err0r500/fairway/examples/realworldapp/crypto"
 	"github.com/err0r500/fairway/examples/realworldapp/event"
 	"github.com/err0r500/fairway/testing/given"
 	"github.com/stretchr/testify/assert"
-	"resty.dev/v3"
 )
 
 func TestChangeUserAuth_CanUpdateEmail(t *testing.T) {
 	t.Parallel()
-	store, server, httpClient := freshSetup(t)
+	store, server, httpClient := given.FreshSetup(t, changeuserauth.Register)
 	currUserId := "user-1"
 	given.EventsInStore(store, event.UserRegistered{Id: currUserId, Name: "john", Email: "john@example.com", HashedPassword: "h"})
 
@@ -34,7 +31,7 @@ func TestChangeUserAuth_CanUpdateEmail(t *testing.T) {
 
 func TestChangeUserAuth_CannotUpdateEmailToTakenEmail(t *testing.T) {
 	t.Parallel()
-	store, server, httpClient := freshSetup(t)
+	store, server, httpClient := given.FreshSetup(t, changeuserauth.Register)
 	currUserId := "user-1"
 	takenEmail := "taken@example.com"
 	given.EventsInStore(store,
@@ -55,7 +52,7 @@ func TestChangeUserAuth_CannotUpdateEmailToTakenEmail(t *testing.T) {
 
 func TestChangeUserAuth_CanChangePassword(t *testing.T) {
 	t.Parallel()
-	store, server, httpClient := freshSetup(t)
+	store, server, httpClient := given.FreshSetup(t, changeuserauth.Register)
 	currUserId := "user-1"
 	given.EventsInStore(store, event.UserRegistered{Id: currUserId, Name: "john", Email: "john@example.com", HashedPassword: "h"})
 
@@ -72,7 +69,7 @@ func TestChangeUserAuth_CanChangePassword(t *testing.T) {
 
 func TestChangeUserAuth_UnauthenticatedFails(t *testing.T) {
 	t.Parallel()
-	_, server, httpClient := freshSetup(t)
+	_, server, httpClient := given.FreshSetup(t, changeuserauth.Register)
 
 	resp, err := httpClient.R().
 		SetBody(map[string]any{
@@ -86,7 +83,7 @@ func TestChangeUserAuth_UnauthenticatedFails(t *testing.T) {
 
 func TestChangeUserAuth_CanUseReleasedEmail(t *testing.T) {
 	t.Parallel()
-	store, server, httpClient := freshSetup(t)
+	store, server, httpClient := given.FreshSetup(t, changeuserauth.Register)
 	currUserId := "user-1"
 	otherUserId := "user-2"
 	releasedEmail := "old@example.com"
@@ -109,7 +106,7 @@ func TestChangeUserAuth_CanUseReleasedEmail(t *testing.T) {
 
 func TestChangeUserAuth_EmptyBodySucceeds(t *testing.T) {
 	t.Parallel()
-	store, server, httpClient := freshSetup(t)
+	store, server, httpClient := given.FreshSetup(t, changeuserauth.Register)
 	currUserId := "user-1"
 	given.EventsInStore(store, event.UserRegistered{Id: currUserId, Name: "john", Email: "john@example.com", HashedPassword: "h"})
 
@@ -120,24 +117,6 @@ func TestChangeUserAuth_EmptyBodySucceeds(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusNoContent, resp.StatusCode())
-}
-
-func freshSetup(t *testing.T) (dcb.DcbStore, *httptest.Server, *resty.Client) {
-	store := dcb.SetupTestStore(t)
-	runner := fairway.NewCommandRunner(store)
-	mux := http.NewServeMux()
-
-	registry := &fairway.HttpChangeRegistry{}
-	changeuserauth.Register(registry)
-	registry.RegisterRoutes(mux, runner)
-
-	server := httptest.NewServer(mux)
-	httpClient := resty.New()
-	t.Cleanup(func() {
-		server.Close()
-		httpClient.Close()
-	})
-	return store, server, httpClient
 }
 
 func generateToken(t *testing.T, userID string) string {
