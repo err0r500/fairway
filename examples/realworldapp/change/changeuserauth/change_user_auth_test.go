@@ -1,5 +1,3 @@
-//go:build test
-
 package changeuserauth_test
 
 import (

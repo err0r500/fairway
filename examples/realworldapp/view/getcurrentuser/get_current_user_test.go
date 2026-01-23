@@ -1,5 +1,3 @@
-//go:build test
-
 package getcurrentuser_test
 
 import (

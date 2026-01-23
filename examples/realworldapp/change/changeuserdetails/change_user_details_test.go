@@ -1,5 +1,3 @@
-//go:build test
-
 package changeuserdetails_test
 
 import (
