@@ -3,24 +3,17 @@ package login_test
 import (
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 
+	"github.com/err0r500/fairway/examples/realworldapp/crypto"
 	"github.com/err0r500/fairway/examples/realworldapp/event"
 	"github.com/err0r500/fairway/examples/realworldapp/view/login"
 	"github.com/err0r500/fairway/testing/given"
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/crypto/bcrypt"
 )
-
-func hashPassword(password string) string {
-	h, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	return string(h)
-}
 
 func TestLogin_Success(t *testing.T) {
 	t.Parallel()
-	os.Setenv("JWT_SECRET", "test-secret")
 	store, server, httpClient := given.FreshSetup(t, login.Register)
 
 	// Given
@@ -28,10 +21,10 @@ func TestLogin_Success(t *testing.T) {
 	email := "john@example.com"
 	password := "secret123"
 	given.EventsInStore(store, event.UserRegistered{
-		Id:       userId,
-		Name:     "johndoe",
-		Email:    email,
-		Password: hashPassword(password),
+		Id:             userId,
+		Name:           "johndoe",
+		Email:          email,
+		HashedPassword: crypto.Hash(password),
 	})
 
 	// When
@@ -50,7 +43,6 @@ func TestLogin_Success(t *testing.T) {
 
 func TestLogin_UserNotFound(t *testing.T) {
 	t.Parallel()
-	os.Setenv("JWT_SECRET", "test-secret")
 	_, server, httpClient := given.FreshSetup(t, login.Register)
 
 	// When
@@ -68,16 +60,15 @@ func TestLogin_UserNotFound(t *testing.T) {
 
 func TestLogin_WrongPassword(t *testing.T) {
 	t.Parallel()
-	os.Setenv("JWT_SECRET", "test-secret")
 	store, server, httpClient := given.FreshSetup(t, login.Register)
 
 	// Given
 	email := "john@example.com"
 	given.EventsInStore(store, event.UserRegistered{
-		Id:       "user-1",
-		Name:     "johndoe",
-		Email:    email,
-		Password: hashPassword("correct-password"),
+		Id:             "user-1",
+		Name:           "johndoe",
+		Email:          email,
+		HashedPassword: crypto.Hash("correct-password"),
 	})
 
 	// When
@@ -95,7 +86,6 @@ func TestLogin_WrongPassword(t *testing.T) {
 
 func TestLogin_MalformedPayload(t *testing.T) {
 	t.Parallel()
-	os.Setenv("JWT_SECRET", "test-secret")
 
 	cases := []struct {
 		name string

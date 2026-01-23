@@ -3,7 +3,9 @@
 ## Run the server
 ```
 go generate ./...
-go run .
+JWT_SECRET=supersecret go run .
+
+JWT_SECRET=supersecret go test -tags=test -v ./...
 ```
 
 ## Event Modeling

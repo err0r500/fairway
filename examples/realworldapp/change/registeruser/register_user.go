@@ -8,6 +8,7 @@ import (
 
 	"github.com/err0r500/fairway"
 	"github.com/err0r500/fairway/examples/realworldapp/change"
+	"github.com/err0r500/fairway/examples/realworldapp/crypto"
 	"github.com/err0r500/fairway/examples/realworldapp/event"
 	"github.com/err0r500/fairway/utils"
 )
@@ -40,10 +41,10 @@ func httpHandler(runner fairway.CommandRunner) http.HandlerFunc {
 		}
 
 		if err := runner.RunPure(r.Context(), command{
-			id:       req.Id,
-			name:     req.Username,
-			email:    req.Email,
-			password: req.Password,
+			id:             req.Id,
+			name:           req.Username,
+			email:          req.Email,
+			hashedPassword: crypto.Hash(req.Password),
 		}); err != nil {
 			if errors.Is(err, conflictErr) {
 				w.WriteHeader(http.StatusConflict)
@@ -60,10 +61,10 @@ func httpHandler(runner fairway.CommandRunner) http.HandlerFunc {
 }
 
 type command struct {
-	id       string
-	name     string
-	email    string
-	password string
+	id             string
+	name           string
+	email          string
+	hashedPassword string
 }
 
 func (cmd command) Run(ctx context.Context, ev fairway.EventReadAppender) error {
@@ -97,5 +98,10 @@ func (cmd command) Run(ctx context.Context, ev fairway.EventReadAppender) error 
 		return conflictErr
 	}
 
-	return ev.AppendEvents(ctx, event.NewUserRegistered(cmd.id, cmd.name, cmd.email, cmd.password))
+	return ev.AppendEvents(ctx, event.UserRegistered{
+		Id:             cmd.id,
+		Name:           cmd.name,
+		Email:          cmd.email,
+		HashedPassword: cmd.hashedPassword,
+	})
 }

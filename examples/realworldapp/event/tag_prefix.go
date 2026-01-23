@@ -11,4 +11,3 @@ func UserNameTagPrefix(name string) string {
 func UserEmailTagPrefix(email string) string {
 	return "email:" + email
 }
-
