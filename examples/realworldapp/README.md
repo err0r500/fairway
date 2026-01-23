@@ -71,10 +71,10 @@ differences with the original API :
   - A user can change their password
   - Unauthenticated request fails
 - **Events:**
-  - UserUpdatedTheirName (tag username)
-  - UserUpdatedTheirEmail (tag useremail (hashed))
-  - UserUpdatedTheirPassword (tag userpassword (hashed))
-  - UserUpdatedDetails (bio, image)
+  - UserChangedTheirName (tag username)
+  - UserChangedTheirEmail (tag useremail (hashed))
+  - UserChangedTheirPassword (tag userpassword (hashed))
+  - UserChangedDetails (bio, image)
 
 ### View: GetCurrentUser
 

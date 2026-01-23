@@ -24,3 +24,24 @@ func (s JwtService) Token(userId string) (string, error) {
 		"exp":     time.Now().Add(24 * time.Hour).Unix(),
 	}).SignedString([]byte(s.secret))
 }
+
+func (s JwtService) Validate(tokenString string) (string, error) {
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		return []byte(s.secret), nil
+	})
+	if err != nil {
+		return "", err
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok || !token.Valid {
+		return "", jwt.ErrSignatureInvalid
+	}
+
+	userId, ok := claims["user_id"].(string)
+	if !ok {
+		return "", jwt.ErrSignatureInvalid
+	}
+
+	return userId, nil
+}
