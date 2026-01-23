@@ -5,7 +5,6 @@ package changeuserauth_test
 import (
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 
 	"github.com/err0r500/fairway"
@@ -18,7 +17,7 @@ import (
 	"resty.dev/v3"
 )
 
-func TestChangeUserAuth_CanUpdateEmailToUnusedEmail(t *testing.T) {
+func TestChangeUserAuth_CanUpdateEmail(t *testing.T) {
 	t.Parallel()
 	store, server, httpClient := freshSetup(t)
 	given.EventsInStore(store, event.UserRegistered{Id: "user-1", Name: "john", Email: "john@example.com", HashedPassword: "h"})
@@ -27,11 +26,9 @@ func TestChangeUserAuth_CanUpdateEmailToUnusedEmail(t *testing.T) {
 	resp, err := httpClient.R().
 		SetHeader("Authorization", "Token "+token).
 		SetBody(map[string]any{
-			"username": "john",
-			"email":    "newemail@example.com",
-			"password": "secret",
+			"email": "newemail@example.com",
 		}).
-		Put(apiRoute(server))
+		Patch(apiRoute(server))
 
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusNoContent, resp.StatusCode())
@@ -49,33 +46,9 @@ func TestChangeUserAuth_CannotUpdateEmailToTakenEmail(t *testing.T) {
 	resp, err := httpClient.R().
 		SetHeader("Authorization", "Token "+token).
 		SetBody(map[string]any{
-			"username": "john",
-			"email":    "taken@example.com",
-			"password": "secret",
+			"email": "taken@example.com",
 		}).
-		Put(apiRoute(server))
-
-	assert.NoError(t, err)
-	assert.Equal(t, http.StatusConflict, resp.StatusCode())
-}
-
-func TestChangeUserAuth_CannotUpdateUsernameToTakenUsername(t *testing.T) {
-	t.Parallel()
-	store, server, httpClient := freshSetup(t)
-	given.EventsInStore(store,
-		event.UserRegistered{Id: "user-1", Name: "john", Email: "john@example.com", HashedPassword: "h"},
-		event.UserRegistered{Id: "user-2", Name: "taken", Email: "other@example.com", HashedPassword: "h"},
-	)
-	token := generateToken(t, "user-1")
-
-	resp, err := httpClient.R().
-		SetHeader("Authorization", "Token "+token).
-		SetBody(map[string]any{
-			"username": "taken",
-			"email":    "john@example.com",
-			"password": "secret",
-		}).
-		Put(apiRoute(server))
+		Patch(apiRoute(server))
 
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusConflict, resp.StatusCode())
@@ -90,11 +63,9 @@ func TestChangeUserAuth_CanChangePassword(t *testing.T) {
 	resp, err := httpClient.R().
 		SetHeader("Authorization", "Token "+token).
 		SetBody(map[string]any{
-			"username": "john",
-			"email":    "john@example.com",
 			"password": "newpassword",
 		}).
-		Put(apiRoute(server))
+		Patch(apiRoute(server))
 
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusNoContent, resp.StatusCode())
@@ -106,62 +77,17 @@ func TestChangeUserAuth_UnauthenticatedFails(t *testing.T) {
 
 	resp, err := httpClient.R().
 		SetBody(map[string]any{
-			"username": "john",
-			"email":    "john@example.com",
-			"password": "secret",
+			"email": "john@example.com",
 		}).
-		Put(apiRoute(server))
+		Patch(apiRoute(server))
 
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode())
 }
 
-func TestChangeUserAuth_MissingFieldFails(t *testing.T) {
-	t.Parallel()
-	store, server, httpClient := freshSetup(t)
-	given.EventsInStore(store, event.UserRegistered{Id: "user-1", Name: "john", Email: "john@example.com", HashedPassword: "h"})
-	token := generateToken(t, "user-1")
-
-	resp, err := httpClient.R().
-		SetHeader("Authorization", "Token "+token).
-		SetBody(map[string]any{
-			"username": "john",
-			"email":    "john@example.com",
-		}).
-		Put(apiRoute(server))
-
-	assert.NoError(t, err)
-	assert.Equal(t, http.StatusBadRequest, resp.StatusCode())
-}
-
-func TestChangeUserAuth_CanUseReleasedUsername(t *testing.T) {
-	t.Parallel()
-	store, server, httpClient := freshSetup(t)
-	// user-2 registered with "oldname", then changed to "newname" - "oldname" is now free
-	given.EventsInStore(store,
-		event.UserRegistered{Id: "user-1", Name: "john", Email: "john@example.com", HashedPassword: "h"},
-		event.UserRegistered{Id: "user-2", Name: "oldname", Email: "other@example.com", HashedPassword: "h"},
-		event.UserChangedTheirName{UserId: "user-2", PreviousUsername: "oldname", NewUsername: "newname"},
-	)
-	token := generateToken(t, "user-1")
-
-	resp, err := httpClient.R().
-		SetHeader("Authorization", "Token "+token).
-		SetBody(map[string]any{
-			"username": "oldname",
-			"email":    "john@example.com",
-			"password": "secret",
-		}).
-		Put(apiRoute(server))
-
-	assert.NoError(t, err)
-	assert.Equal(t, http.StatusNoContent, resp.StatusCode())
-}
-
 func TestChangeUserAuth_CanUseReleasedEmail(t *testing.T) {
 	t.Parallel()
 	store, server, httpClient := freshSetup(t)
-	// user-2 registered with "old@example.com", then changed to "new@example.com"
 	given.EventsInStore(store,
 		event.UserRegistered{Id: "user-1", Name: "john", Email: "john@example.com", HashedPassword: "h"},
 		event.UserRegistered{Id: "user-2", Name: "other", Email: "old@example.com", HashedPassword: "h"},
@@ -172,42 +98,30 @@ func TestChangeUserAuth_CanUseReleasedEmail(t *testing.T) {
 	resp, err := httpClient.R().
 		SetHeader("Authorization", "Token "+token).
 		SetBody(map[string]any{
-			"username": "john",
-			"email":    "old@example.com",
-			"password": "secret",
+			"email": "old@example.com",
 		}).
-		Put(apiRoute(server))
+		Patch(apiRoute(server))
 
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusNoContent, resp.StatusCode())
 }
 
-func TestChangeUserAuth_CannotUseTakenUsernameAfterChange(t *testing.T) {
+func TestChangeUserAuth_EmptyBodySucceeds(t *testing.T) {
 	t.Parallel()
 	store, server, httpClient := freshSetup(t)
-	// user-2 changed their name TO "targetname" - it's now taken
-	given.EventsInStore(store,
-		event.UserRegistered{Id: "user-1", Name: "john", Email: "john@example.com", HashedPassword: "h"},
-		event.UserRegistered{Id: "user-2", Name: "oldname", Email: "other@example.com", HashedPassword: "h"},
-		event.UserChangedTheirName{UserId: "user-2", PreviousUsername: "oldname", NewUsername: "targetname"},
-	)
+	given.EventsInStore(store, event.UserRegistered{Id: "user-1", Name: "john", Email: "john@example.com", HashedPassword: "h"})
 	token := generateToken(t, "user-1")
 
 	resp, err := httpClient.R().
 		SetHeader("Authorization", "Token "+token).
-		SetBody(map[string]any{
-			"username": "targetname",
-			"email":    "john@example.com",
-			"password": "secret",
-		}).
-		Put(apiRoute(server))
+		SetBody(map[string]any{}).
+		Patch(apiRoute(server))
 
 	assert.NoError(t, err)
-	assert.Equal(t, http.StatusConflict, resp.StatusCode())
+	assert.Equal(t, http.StatusNoContent, resp.StatusCode())
 }
 
 func freshSetup(t *testing.T) (dcb.DcbStore, *httptest.Server, *resty.Client) {
-	os.Setenv("JWT_SECRET", "testsecret")
 	store := dcb.SetupTestStore(t)
 	runner := fairway.NewCommandRunner(store)
 	mux := http.NewServeMux()

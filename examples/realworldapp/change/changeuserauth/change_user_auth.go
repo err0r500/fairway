@@ -18,18 +18,17 @@ func init() {
 }
 
 func Register(registry *fairway.HttpChangeRegistry) {
-	registry.RegisterCommand("PUT /user/auth", httpHandler)
+	registry.RegisterCommand("PATCH /user/auth", httpHandler)
 }
 
 var (
-	conflictErr = errors.New("username or email already taken")
+	conflictErr = errors.New("email already taken")
 	notFoundErr = errors.New("user not found")
 )
 
 type reqBody struct {
-	Username string `json:"username" validate:"required"`
-	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required"`
+	Email    *string `json:"email" validate:"omitempty,email"`
+	Password *string `json:"password"`
 }
 
 func httpHandler(runner fairway.CommandRunner) http.HandlerFunc {
@@ -48,10 +47,9 @@ func httpHandler(runner fairway.CommandRunner) http.HandlerFunc {
 		}
 
 		if err := runner.RunPure(r.Context(), command{
-			userID:         userID,
-			username:       req.Username,
-			email:          req.Email,
-			hashedPassword: crypto.Hash(req.Password),
+			userID:            userID,
+			email:             req.Email,
+			cleartextPassword: req.Password,
 		}); err != nil {
 			if errors.Is(err, conflictErr) {
 				w.WriteHeader(http.StatusConflict)
@@ -72,70 +70,49 @@ func httpHandler(runner fairway.CommandRunner) http.HandlerFunc {
 }
 
 type command struct {
-	userID         string
-	username       string
-	email          string
-	hashedPassword string
-}
-
-type currentUserState struct {
-	username string
-	email    string
+	userID            string
+	email             *string
+	cleartextPassword *string
 }
 
 func (cmd command) Run(ctx context.Context, ev fairway.EventReadAppender) error {
-	var currentUser *currentUserState
-	otherHasUsername := make(map[string]bool) // other userId -> currently has target username
-	otherHasEmail := make(map[string]bool)    // other userId -> currently has target email
+	var currentEmail *string
+	otherHasEmail := make(map[string]bool)
 
-	if err := ev.ReadEvents(ctx, fairway.QueryItems(
-		// current user's events
-		fairway.NewQueryItem().
-			Types(event.UserRegistered{}, event.UserChangedTheirName{}, event.UserChangedTheirEmail{}).
-			Tags(event.UserIdTagPrefix(cmd.userID)),
-		// events touching target username
-		fairway.NewQueryItem().
-			Types(event.UserRegistered{}, event.UserChangedTheirName{}).
-			Tags(event.UserNameTagPrefix(cmd.username)),
-		// events touching target email
+	queryItems := []fairway.QueryItem{
 		fairway.NewQueryItem().
 			Types(event.UserRegistered{}, event.UserChangedTheirEmail{}).
-			Tags(event.UserEmailTagPrefix(cmd.email)),
-	), func(te fairway.TaggedEvent) bool {
+			Tags(event.UserIdTagPrefix(cmd.userID)),
+	}
+	if cmd.email != nil {
+		queryItems = append(queryItems,
+			fairway.NewQueryItem().
+				Types(event.UserRegistered{}, event.UserChangedTheirEmail{}).
+				Tags(event.UserEmailTagPrefix(*cmd.email)),
+		)
+	}
+
+	if err := ev.ReadEvents(ctx, fairway.QueryItems(queryItems...), func(te fairway.TaggedEvent) bool {
 		switch e := te.(type) {
 		case event.UserRegistered:
 			if e.Id == cmd.userID {
-				currentUser = &currentUserState{username: e.Name, email: e.Email}
+				currentEmail = &e.Email
 				break
 			}
-
-			if e.Name == cmd.username {
-				otherHasUsername[e.Id] = true
-			}
-			if e.Email == cmd.email {
+			if cmd.email != nil && e.Email == *cmd.email {
 				otherHasEmail[e.Id] = true
-			}
-		case event.UserChangedTheirName:
-			if e.UserId == cmd.userID {
-				currentUser.username = e.NewUsername
-				break
-			}
-
-			if e.NewUsername == cmd.username {
-				otherHasUsername[e.UserId] = true
-			} else if e.PreviousUsername == cmd.username {
-				otherHasUsername[e.UserId] = false
 			}
 		case event.UserChangedTheirEmail:
 			if e.UserId == cmd.userID {
-				currentUser.email = e.NewEmail
+				currentEmail = &e.NewEmail
 				break
 			}
-
-			if e.NewEmail == cmd.email {
-				otherHasEmail[e.UserId] = true
-			} else if e.PreviousEmail == cmd.email {
-				otherHasEmail[e.UserId] = false
+			if cmd.email != nil {
+				if e.NewEmail == *cmd.email {
+					otherHasEmail[e.UserId] = true
+				} else if e.PreviousEmail == *cmd.email {
+					otherHasEmail[e.UserId] = false
+				}
 			}
 		}
 		return true
@@ -143,15 +120,10 @@ func (cmd command) Run(ctx context.Context, ev fairway.EventReadAppender) error 
 		return err
 	}
 
-	if currentUser == nil {
+	if currentEmail == nil {
 		return notFoundErr
 	}
 
-	for _, has := range otherHasUsername {
-		if has {
-			return conflictErr
-		}
-	}
 	for _, has := range otherHasEmail {
 		if has {
 			return conflictErr
@@ -160,26 +132,24 @@ func (cmd command) Run(ctx context.Context, ev fairway.EventReadAppender) error 
 
 	var events []fairway.TaggedEvent
 
-	if cmd.username != currentUser.username {
-		events = append(events, event.UserChangedTheirName{
-			UserId:           cmd.userID,
-			PreviousUsername: currentUser.username,
-			NewUsername:      cmd.username,
-		})
-	}
-
-	if cmd.email != currentUser.email {
+	if cmd.email != nil {
 		events = append(events, event.UserChangedTheirEmail{
 			UserId:        cmd.userID,
-			PreviousEmail: currentUser.email,
-			NewEmail:      cmd.email,
+			PreviousEmail: *currentEmail,
+			NewEmail:      *cmd.email,
 		})
 	}
 
-	events = append(events, event.UserChangedTheirPassword{
-		UserId:            cmd.userID,
-		NewHashedPassword: cmd.hashedPassword,
-	})
+	if cmd.cleartextPassword != nil {
+		events = append(events, event.UserChangedTheirPassword{
+			UserId:            cmd.userID,
+			NewHashedPassword: crypto.Hash(*cmd.cleartextPassword),
+		})
+	}
+
+	if len(events) == 0 {
+		return nil
+	}
 
 	return ev.AppendEvents(ctx, events...)
 }
