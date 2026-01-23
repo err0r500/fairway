@@ -93,58 +93,49 @@ func (cmd command) Run(ctx context.Context, ev fairway.EventReadAppender) error 
 		fairway.NewQueryItem().
 			Types(event.UserRegistered{}, event.UserChangedTheirName{}, event.UserChangedTheirEmail{}).
 			Tags(event.UserIdTagPrefix(cmd.userID)),
-		// events touching target username (current holders)
+		// events touching target username
 		fairway.NewQueryItem().
 			Types(event.UserRegistered{}, event.UserChangedTheirName{}).
 			Tags(event.UserNameTagPrefix(cmd.username)),
-		// events where someone changed AWAY from target username
-		fairway.NewQueryItem().
-			Types(event.UserChangedTheirName{}).
-			Tags(event.PreviousUserNameTagPrefix(cmd.username)),
-		// events touching target email (current holders)
+		// events touching target email
 		fairway.NewQueryItem().
 			Types(event.UserRegistered{}, event.UserChangedTheirEmail{}).
 			Tags(event.UserEmailTagPrefix(cmd.email)),
-		// events where someone changed AWAY from target email
-		fairway.NewQueryItem().
-			Types(event.UserChangedTheirEmail{}).
-			Tags(event.PreviousUserEmailTagPrefix(cmd.email)),
 	), func(te fairway.TaggedEvent) bool {
 		switch e := te.(type) {
 		case event.UserRegistered:
 			if e.Id == cmd.userID {
 				currentUser = &currentUserState{username: e.Name, email: e.Email}
-			} else {
-				if e.Name == cmd.username {
-					otherHasUsername[e.Id] = true
-				}
-				if e.Email == cmd.email {
-					otherHasEmail[e.Id] = true
-				}
+				break
+			}
+
+			if e.Name == cmd.username {
+				otherHasUsername[e.Id] = true
+			}
+			if e.Email == cmd.email {
+				otherHasEmail[e.Id] = true
 			}
 		case event.UserChangedTheirName:
 			if e.UserId == cmd.userID {
-				if currentUser != nil {
-					currentUser.username = e.NewUsername
-				}
-			} else {
-				if e.NewUsername == cmd.username {
-					otherHasUsername[e.UserId] = true
-				} else if e.PreviousUsername == cmd.username {
-					otherHasUsername[e.UserId] = false
-				}
+				currentUser.username = e.NewUsername
+				break
+			}
+
+			if e.NewUsername == cmd.username {
+				otherHasUsername[e.UserId] = true
+			} else if e.PreviousUsername == cmd.username {
+				otherHasUsername[e.UserId] = false
 			}
 		case event.UserChangedTheirEmail:
 			if e.UserId == cmd.userID {
-				if currentUser != nil {
-					currentUser.email = e.NewEmail
-				}
-			} else {
-				if e.NewEmail == cmd.email {
-					otherHasEmail[e.UserId] = true
-				} else if e.PreviousEmail == cmd.email {
-					otherHasEmail[e.UserId] = false
-				}
+				currentUser.email = e.NewEmail
+				break
+			}
+
+			if e.NewEmail == cmd.email {
+				otherHasEmail[e.UserId] = true
+			} else if e.PreviousEmail == cmd.email {
+				otherHasEmail[e.UserId] = false
 			}
 		}
 		return true
