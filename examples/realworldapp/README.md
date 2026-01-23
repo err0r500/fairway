@@ -51,36 +51,55 @@ differences with the original API :
   - Login fails with wrong password
   - Login fails with unknown email
 
-### Command: UpdateUser
+### Command: ChangeUserAuth
 
-- **Endpoint:** `PUT /user`
+- **Endpoint:** `PATCH /user/auth`
 - **Auth:** Required
-- **Input:** `{ email?, username?, password?, bio?, image? }`
+- **Input:** `{ email?, password? }`
 - **Output:** None
 - **Business Logic:**
   - Validate current user exists
-  - If username changed: validate uniqueness
-  - If email changed: validate uniqueness
-  - If password changed: hash new password
-  - Update user fields
+  - If email provided: validate uniqueness, emit event
+  - If password provided: hash and emit event
 - **Tests:**
-  - A user can update their bio
   - A user can update their email to an unused email
   - A user cannot update their email to an already taken email
-  - A user cannot update their username to an already taken username
+  - A user can use a released email
   - A user can change their password
+  - Empty body succeeds (no-op)
   - Unauthenticated request fails
 - **Events:**
+  - UserChangedTheirEmail (tag email)
+  - UserChangedTheirPassword
+
+### Command: ChangeUserDetails
+
+- **Endpoint:** `PATCH /user/details`
+- **Auth:** Required
+- **Input:** `{ username?, bio?, image? }`
+- **Output:** None
+- **Business Logic:**
+  - Validate current user exists
+  - If username provided: validate uniqueness, emit event
+  - If bio/image provided: emit event
+- **Tests:**
+  - A user can update their username
+  - A user cannot update their username to an already taken username
+  - A user can use a released username
+  - A user can update their bio
+  - A user can update their image
+  - Empty body succeeds (no-op)
+  - Unauthenticated request fails
+  - User not found fails
+- **Events:**
   - UserChangedTheirName (tag username)
-  - UserChangedTheirEmail (tag useremail (hashed))
-  - UserChangedTheirPassword (tag userpassword (hashed))
   - UserChangedDetails (bio, image)
 
 ### View: GetCurrentUser
 
 - **Endpoint:** `GET /user`
 - **Auth:** Required
-- **Output:** `{ email, token, username, bio, image }`
+- **Output:** `{ email, username, bio, image }`
 - **Business Logic:**
   - Return current user from token
 - **Tests:**
@@ -356,23 +375,24 @@ differences with the original API :
 
 | Type | Count |
 |------|-------|
-| Commands | 12 |
+| Commands | 13 |
 | Views | 7 |
 | Automation | 0 |
 
 ### Commands
 1. Register
 2. Login
-3. UpdateUser
-4. FollowUser
-5. UnfollowUser
-6. CreateArticle
-7. UpdateArticle
-8. DeleteArticle
-9. CreateComment
-10. DeleteComment
-11. FavoriteArticle
-12. UnfavoriteArticle
+3. ChangeUserAuth
+4. ChangeUserDetails
+5. FollowUser
+6. UnfollowUser
+7. CreateArticle
+8. UpdateArticle
+9. DeleteArticle
+10. CreateComment
+11. DeleteComment
+12. FavoriteArticle
+13. UnfavoriteArticle
 
 ### Views
 1. GetCurrentUser
@@ -391,7 +411,8 @@ differences with the original API :
 |-------|-------|
 | Register | 4 |
 | Login | 3 |
-| UpdateUser | 6 |
+| ChangeUserAuth | 6 |
+| ChangeUserDetails | 8 |
 | GetCurrentUser | 2 |
 | GetProfile | 5 |
 | FollowUser | 5 |
@@ -408,4 +429,4 @@ differences with the original API :
 | FavoriteArticle | 5 |
 | UnfavoriteArticle | 5 |
 | GetTags | 3 |
-| **Total** | **88** |
+| **Total** | **96** |
