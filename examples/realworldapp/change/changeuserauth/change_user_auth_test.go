@@ -20,11 +20,11 @@ import (
 func TestChangeUserAuth_CanUpdateEmail(t *testing.T) {
 	t.Parallel()
 	store, server, httpClient := freshSetup(t)
-	given.EventsInStore(store, event.UserRegistered{Id: "user-1", Name: "john", Email: "john@example.com", HashedPassword: "h"})
-	token := generateToken(t, "user-1")
+	currUserId := "user-1"
+	given.EventsInStore(store, event.UserRegistered{Id: currUserId, Name: "john", Email: "john@example.com", HashedPassword: "h"})
 
 	resp, err := httpClient.R().
-		SetHeader("Authorization", "Token "+token).
+		SetHeader("Authorization", "Token "+generateToken(t, currUserId)).
 		SetBody(map[string]any{
 			"email": "newemail@example.com",
 		}).
@@ -37,16 +37,17 @@ func TestChangeUserAuth_CanUpdateEmail(t *testing.T) {
 func TestChangeUserAuth_CannotUpdateEmailToTakenEmail(t *testing.T) {
 	t.Parallel()
 	store, server, httpClient := freshSetup(t)
+	currUserId := "user-1"
+	takenEmail := "taken@example.com"
 	given.EventsInStore(store,
-		event.UserRegistered{Id: "user-1", Name: "john", Email: "john@example.com", HashedPassword: "h"},
-		event.UserRegistered{Id: "user-2", Name: "other", Email: "taken@example.com", HashedPassword: "h"},
+		event.UserRegistered{Id: currUserId, Name: "john", Email: "john@example.com", HashedPassword: "h"},
+		event.UserRegistered{Id: "user-2", Name: "other", Email: takenEmail, HashedPassword: "h"},
 	)
-	token := generateToken(t, "user-1")
 
 	resp, err := httpClient.R().
-		SetHeader("Authorization", "Token "+token).
+		SetHeader("Authorization", "Token "+generateToken(t, currUserId)).
 		SetBody(map[string]any{
-			"email": "taken@example.com",
+			"email": takenEmail,
 		}).
 		Patch(apiRoute(server))
 
@@ -57,11 +58,11 @@ func TestChangeUserAuth_CannotUpdateEmailToTakenEmail(t *testing.T) {
 func TestChangeUserAuth_CanChangePassword(t *testing.T) {
 	t.Parallel()
 	store, server, httpClient := freshSetup(t)
-	given.EventsInStore(store, event.UserRegistered{Id: "user-1", Name: "john", Email: "john@example.com", HashedPassword: "h"})
-	token := generateToken(t, "user-1")
+	currUserId := "user-1"
+	given.EventsInStore(store, event.UserRegistered{Id: currUserId, Name: "john", Email: "john@example.com", HashedPassword: "h"})
 
 	resp, err := httpClient.R().
-		SetHeader("Authorization", "Token "+token).
+		SetHeader("Authorization", "Token "+generateToken(t, currUserId)).
 		SetBody(map[string]any{
 			"password": "newpassword",
 		}).
@@ -88,17 +89,19 @@ func TestChangeUserAuth_UnauthenticatedFails(t *testing.T) {
 func TestChangeUserAuth_CanUseReleasedEmail(t *testing.T) {
 	t.Parallel()
 	store, server, httpClient := freshSetup(t)
+	currUserId := "user-1"
+	otherUserId := "user-2"
+	releasedEmail := "old@example.com"
 	given.EventsInStore(store,
-		event.UserRegistered{Id: "user-1", Name: "john", Email: "john@example.com", HashedPassword: "h"},
-		event.UserRegistered{Id: "user-2", Name: "other", Email: "old@example.com", HashedPassword: "h"},
-		event.UserChangedTheirEmail{UserId: "user-2", PreviousEmail: "old@example.com", NewEmail: "new@example.com"},
+		event.UserRegistered{Id: currUserId, Name: "john", Email: "john@example.com", HashedPassword: "h"},
+		event.UserRegistered{Id: otherUserId, Name: "other", Email: releasedEmail, HashedPassword: "h"},
+		event.UserChangedTheirEmail{UserId: otherUserId, PreviousEmail: releasedEmail, NewEmail: "new@example.com"},
 	)
-	token := generateToken(t, "user-1")
 
 	resp, err := httpClient.R().
-		SetHeader("Authorization", "Token "+token).
+		SetHeader("Authorization", "Token "+generateToken(t, currUserId)).
 		SetBody(map[string]any{
-			"email": "old@example.com",
+			"email": releasedEmail,
 		}).
 		Patch(apiRoute(server))
 
@@ -109,11 +112,11 @@ func TestChangeUserAuth_CanUseReleasedEmail(t *testing.T) {
 func TestChangeUserAuth_EmptyBodySucceeds(t *testing.T) {
 	t.Parallel()
 	store, server, httpClient := freshSetup(t)
-	given.EventsInStore(store, event.UserRegistered{Id: "user-1", Name: "john", Email: "john@example.com", HashedPassword: "h"})
-	token := generateToken(t, "user-1")
+	currUserId := "user-1"
+	given.EventsInStore(store, event.UserRegistered{Id: currUserId, Name: "john", Email: "john@example.com", HashedPassword: "h"})
 
 	resp, err := httpClient.R().
-		SetHeader("Authorization", "Token "+token).
+		SetHeader("Authorization", "Token "+generateToken(t, currUserId)).
 		SetBody(map[string]any{}).
 		Patch(apiRoute(server))
 

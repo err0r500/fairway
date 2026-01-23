@@ -20,11 +20,11 @@ import (
 func TestChangeUserDetails_CanUpdateUsername(t *testing.T) {
 	t.Parallel()
 	store, server, httpClient := freshSetup(t)
-	given.EventsInStore(store, event.UserRegistered{Id: "user-1", Name: "john", Email: "john@example.com", HashedPassword: "h"})
-	token := generateToken(t, "user-1")
+	currUserId := "user-1"
+	given.EventsInStore(store, event.UserRegistered{Id: currUserId, Name: "john", Email: "john@example.com", HashedPassword: "h"})
 
 	resp, err := httpClient.R().
-		SetHeader("Authorization", "Token "+token).
+		SetHeader("Authorization", "Token "+generateToken(t, currUserId)).
 		SetBody(map[string]any{
 			"username": "newname",
 		}).
@@ -37,16 +37,17 @@ func TestChangeUserDetails_CanUpdateUsername(t *testing.T) {
 func TestChangeUserDetails_CannotUpdateUsernameToTaken(t *testing.T) {
 	t.Parallel()
 	store, server, httpClient := freshSetup(t)
+	currUserId := "user-1"
+	takenUsername := "taken"
 	given.EventsInStore(store,
-		event.UserRegistered{Id: "user-1", Name: "john", Email: "john@example.com", HashedPassword: "h"},
-		event.UserRegistered{Id: "user-2", Name: "taken", Email: "other@example.com", HashedPassword: "h"},
+		event.UserRegistered{Id: currUserId, Name: "john", Email: "john@example.com", HashedPassword: "h"},
+		event.UserRegistered{Id: "user-2", Name: takenUsername, Email: "other@example.com", HashedPassword: "h"},
 	)
-	token := generateToken(t, "user-1")
 
 	resp, err := httpClient.R().
-		SetHeader("Authorization", "Token "+token).
+		SetHeader("Authorization", "Token "+generateToken(t, currUserId)).
 		SetBody(map[string]any{
-			"username": "taken",
+			"username": takenUsername,
 		}).
 		Patch(apiRoute(server))
 
@@ -57,17 +58,19 @@ func TestChangeUserDetails_CannotUpdateUsernameToTaken(t *testing.T) {
 func TestChangeUserDetails_CanUseReleasedUsername(t *testing.T) {
 	t.Parallel()
 	store, server, httpClient := freshSetup(t)
+	currUserId := "user-1"
+	otherUserId := "user-2"
+	releasedUsername := "oldname"
 	given.EventsInStore(store,
-		event.UserRegistered{Id: "user-1", Name: "john", Email: "john@example.com", HashedPassword: "h"},
-		event.UserRegistered{Id: "user-2", Name: "oldname", Email: "other@example.com", HashedPassword: "h"},
-		event.UserChangedTheirName{UserId: "user-2", PreviousUsername: "oldname", NewUsername: "newname"},
+		event.UserRegistered{Id: currUserId, Name: "john", Email: "john@example.com", HashedPassword: "h"},
+		event.UserRegistered{Id: otherUserId, Name: releasedUsername, Email: "other@example.com", HashedPassword: "h"},
+		event.UserChangedTheirName{UserId: otherUserId, PreviousUsername: releasedUsername, NewUsername: "newname"},
 	)
-	token := generateToken(t, "user-1")
 
 	resp, err := httpClient.R().
-		SetHeader("Authorization", "Token "+token).
+		SetHeader("Authorization", "Token "+generateToken(t, currUserId)).
 		SetBody(map[string]any{
-			"username": "oldname",
+			"username": releasedUsername,
 		}).
 		Patch(apiRoute(server))
 
@@ -78,11 +81,11 @@ func TestChangeUserDetails_CanUseReleasedUsername(t *testing.T) {
 func TestChangeUserDetails_CanUpdateBio(t *testing.T) {
 	t.Parallel()
 	store, server, httpClient := freshSetup(t)
-	given.EventsInStore(store, event.UserRegistered{Id: "user-1", Name: "john", Email: "john@example.com", HashedPassword: "h"})
-	token := generateToken(t, "user-1")
+	currUserId := "user-1"
+	given.EventsInStore(store, event.UserRegistered{Id: currUserId, Name: "john", Email: "john@example.com", HashedPassword: "h"})
 
 	resp, err := httpClient.R().
-		SetHeader("Authorization", "Token "+token).
+		SetHeader("Authorization", "Token "+generateToken(t, currUserId)).
 		SetBody(map[string]any{
 			"bio": "My new bio",
 		}).
@@ -95,11 +98,11 @@ func TestChangeUserDetails_CanUpdateBio(t *testing.T) {
 func TestChangeUserDetails_CanUpdateImage(t *testing.T) {
 	t.Parallel()
 	store, server, httpClient := freshSetup(t)
-	given.EventsInStore(store, event.UserRegistered{Id: "user-1", Name: "john", Email: "john@example.com", HashedPassword: "h"})
-	token := generateToken(t, "user-1")
+	currUserId := "user-1"
+	given.EventsInStore(store, event.UserRegistered{Id: currUserId, Name: "john", Email: "john@example.com", HashedPassword: "h"})
 
 	resp, err := httpClient.R().
-		SetHeader("Authorization", "Token "+token).
+		SetHeader("Authorization", "Token "+generateToken(t, currUserId)).
 		SetBody(map[string]any{
 			"image": "https://example.com/avatar.png",
 		}).
@@ -126,10 +129,10 @@ func TestChangeUserDetails_UnauthenticatedFails(t *testing.T) {
 func TestChangeUserDetails_UserNotFoundFails(t *testing.T) {
 	t.Parallel()
 	_, server, httpClient := freshSetup(t)
-	token := generateToken(t, "nonexistent")
+	nonexistentUserId := "nonexistent"
 
 	resp, err := httpClient.R().
-		SetHeader("Authorization", "Token "+token).
+		SetHeader("Authorization", "Token "+generateToken(t, nonexistentUserId)).
 		SetBody(map[string]any{
 			"bio": "bio",
 		}).
@@ -142,11 +145,11 @@ func TestChangeUserDetails_UserNotFoundFails(t *testing.T) {
 func TestChangeUserDetails_EmptyBodySucceeds(t *testing.T) {
 	t.Parallel()
 	store, server, httpClient := freshSetup(t)
-	given.EventsInStore(store, event.UserRegistered{Id: "user-1", Name: "john", Email: "john@example.com", HashedPassword: "h"})
-	token := generateToken(t, "user-1")
+	currUserId := "user-1"
+	given.EventsInStore(store, event.UserRegistered{Id: currUserId, Name: "john", Email: "john@example.com", HashedPassword: "h"})
 
 	resp, err := httpClient.R().
-		SetHeader("Authorization", "Token "+token).
+		SetHeader("Authorization", "Token "+generateToken(t, currUserId)).
 		SetBody(map[string]any{}).
 		Patch(apiRoute(server))
 
