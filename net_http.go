@@ -39,7 +39,7 @@ func (registry HttpChangeRegistry) RegisteredRoutes() []string {
 }
 
 type HttpViewRegistry struct {
-	registeredReadModels []viewRegistration
+	registeredViews []viewRegistration
 }
 
 // viewRegistration represents a query route registration
@@ -49,8 +49,8 @@ type viewRegistration struct {
 }
 
 // RegisterQuery registers a query handler factory
-func (registry *HttpViewRegistry) RegisterReadModel(pattern string, handler func(EventsReader) http.HandlerFunc) {
-	registry.registeredReadModels = append(registry.registeredReadModels, viewRegistration{
+func (registry *HttpViewRegistry) RegisterView(pattern string, handler func(EventsReader) http.HandlerFunc) {
+	registry.registeredViews = append(registry.registeredViews, viewRegistration{
 		Pattern: pattern,
 		Handler: handler,
 	})
@@ -58,14 +58,14 @@ func (registry *HttpViewRegistry) RegisterReadModel(pattern string, handler func
 
 // RegisterRoutes registers all query routes to the mux
 func (registry HttpViewRegistry) RegisterRoutes(mux *http.ServeMux, client EventsReader) {
-	for _, reg := range registry.registeredReadModels {
+	for _, reg := range registry.registeredViews {
 		mux.HandleFunc(reg.Pattern, reg.Handler(client))
 	}
 }
 
 func (registry HttpViewRegistry) RegisteredRoutes() []string {
 	result := []string{}
-	for _, c := range registry.registeredReadModels {
+	for _, c := range registry.registeredViews {
 		result = append(result, c.Pattern)
 	}
 	return result

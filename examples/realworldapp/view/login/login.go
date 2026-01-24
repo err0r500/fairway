@@ -16,7 +16,7 @@ func init() {
 }
 
 func Register(registry *fairway.HttpViewRegistry) {
-	registry.RegisterReadModel("POST /users/login", httpHandler)
+	registry.RegisterView("POST /users/login", httpHandler)
 }
 
 type reqBody struct {

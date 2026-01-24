@@ -14,7 +14,7 @@ func init() {
 }
 
 func Register(registry *fairway.HttpViewRegistry) {
-	registry.RegisterReadModel("GET /api/lists/{listId}", httpHandler)
+	registry.RegisterView("GET /api/lists/{listId}", httpHandler)
 
 }
 
