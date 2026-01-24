@@ -51,25 +51,40 @@ differences with the original API :
   - Login fails with wrong password
   - Login fails with unknown email
 
-### Command: ChangeUserAuth
+### Command: ChangeEmail
 
-- **Endpoint:** `PATCH /user/auth`
+- **Endpoint:** `PUT /user/email`
 - **Auth:** Required
-- **Input:** `{ email?, password? }`
+- **Input:** `{ email }`
 - **Output:** None
 - **Business Logic:**
   - Validate current user exists
-  - If email provided: validate uniqueness, emit event
-  - If password provided: hash and emit event
+  - Validate email uniqueness (never taken OR released >= 3 days ago)
+  - Emit event
 - **Tests:**
   - A user can update their email to an unused email
   - A user cannot update their email to an already taken email
-  - A user can use a released email
-  - A user can change their password
-  - Empty body succeeds (no-op)
+  - A user cannot take a recently released email (< 3 days)
+  - A user can take an email released >= 3 days ago
   - Unauthenticated request fails
+  - User not found fails
 - **Events:**
   - UserChangedTheirEmail (tag email)
+
+### Command: ChangePassword
+
+- **Endpoint:** `PUT /user/password`
+- **Auth:** Required
+- **Input:** `{ password }`
+- **Output:** None
+- **Business Logic:**
+  - Validate current user exists
+  - Hash and emit event
+- **Tests:**
+  - A user can change their password
+  - Unauthenticated request fails
+  - User not found fails
+- **Events:**
   - UserChangedTheirPassword
 
 ### Command: ChangeUserDetails
@@ -375,24 +390,25 @@ differences with the original API :
 
 | Type | Count |
 |------|-------|
-| Commands | 13 |
+| Commands | 14 |
 | Views | 7 |
 | Automation | 0 |
 
 ### Commands
 1. Register
 2. Login
-3. ChangeUserAuth
-4. ChangeUserDetails
-5. FollowUser
-6. UnfollowUser
-7. CreateArticle
-8. UpdateArticle
-9. DeleteArticle
-10. CreateComment
-11. DeleteComment
-12. FavoriteArticle
-13. UnfavoriteArticle
+3. ChangeEmail
+4. ChangePassword
+5. ChangeUserDetails
+6. FollowUser
+7. UnfollowUser
+8. CreateArticle
+9. UpdateArticle
+10. DeleteArticle
+11. CreateComment
+12. DeleteComment
+13. FavoriteArticle
+14. UnfavoriteArticle
 
 ### Views
 1. GetCurrentUser
@@ -411,7 +427,8 @@ differences with the original API :
 |-------|-------|
 | Register | 4 |
 | Login | 3 |
-| ChangeUserAuth | 6 |
+| ChangeEmail | 6 |
+| ChangePassword | 3 |
 | ChangeUserDetails | 8 |
 | GetCurrentUser | 2 |
 | GetProfile | 5 |
@@ -429,4 +446,4 @@ differences with the original API :
 | FavoriteArticle | 5 |
 | UnfavoriteArticle | 5 |
 | GetTags | 3 |
-| **Total** | **96** |
+| **Total** | **99** |
