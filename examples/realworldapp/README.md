@@ -33,8 +33,11 @@ differences with the original API :
 - **Tests:**
   - A new user can register with valid credentials
   - Registration fails when userId is already taken
-  - Registration fails when email is already taken
-  - Registration fails when username is already taken
+  - Registration fails when email is already taken (registered with it or changed to it)
+  - Registration fails when email was released less than 3 days ago
+  - Registration succeeds when email was released more than 3 days ago
+  - Registration fails when username is already taken (registered with it or changed to it)
+  - Registration succeeds when username was released by another user
   - Registration fails with invalid email format
 
 ### Command: Login
@@ -425,7 +428,7 @@ differences with the original API :
 
 | Slice | Tests |
 |-------|-------|
-| Register | 4 |
+| Register | 8 |
 | Login | 3 |
 | ChangeEmail | 6 |
 | ChangePassword | 3 |
@@ -446,4 +449,4 @@ differences with the original API :
 | FavoriteArticle | 5 |
 | UnfavoriteArticle | 5 |
 | GetTags | 3 |
-| **Total** | **99** |
+| **Total** | **103** |

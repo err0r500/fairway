@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/err0r500/fairway"
 	"github.com/err0r500/fairway/examples/realworldapp/change/registeruser"
@@ -148,6 +149,138 @@ func TestRegisterUser_ApiValidation(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode())
 	then.ExpectEventsInStore(t, store)
+}
+
+func TestRegisterUser_ConflictByEmailChangedToByOtherUser(t *testing.T) {
+	t.Parallel()
+	store, server, httpClient := given.FreshSetup(t, registeruser.Register)
+
+	// Given: user-1 registered with different email, then changed to the target email
+	email := "taken@example.com"
+	given.EventsInStore(store,
+		fairway.NewEvent(event.UserRegistered{Id: "user-1", Name: "existing", Email: "old@example.com", HashedPassword: "pass"}),
+		fairway.NewEvent(event.UserChangedTheirEmail{UserId: "user-1", PreviousEmail: "old@example.com", NewEmail: email}),
+	)
+
+	// When
+	resp, err := httpClient.R().
+		SetBody(map[string]any{
+			"id":       "user-2",
+			"username": "newuser",
+			"email":    email,
+			"password": "newpass",
+		}).
+		Post(apiRoute(server))
+
+	// Then
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusConflict, resp.StatusCode())
+}
+
+func TestRegisterUser_ConflictByEmailReleasedButTooRecently(t *testing.T) {
+	t.Parallel()
+	store, server, httpClient := given.FreshSetup(t, registeruser.Register)
+
+	// Given: user-1 had the email but released it 1 day ago (less than 3 days)
+	email := "released@example.com"
+	oneDayAgo := time.Now().Add(-24 * time.Hour)
+	given.EventsInStore(store,
+		fairway.NewEvent(event.UserRegistered{Id: "user-1", Name: "existing", Email: email, HashedPassword: "pass"}),
+		fairway.NewEventAt(event.UserChangedTheirEmail{UserId: "user-1", PreviousEmail: email, NewEmail: "new@example.com"}, oneDayAgo),
+	)
+
+	// When
+	resp, err := httpClient.R().
+		SetBody(map[string]any{
+			"id":       "user-2",
+			"username": "newuser",
+			"email":    email,
+			"password": "newpass",
+		}).
+		Post(apiRoute(server))
+
+	// Then
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusConflict, resp.StatusCode())
+}
+
+func TestRegisterUser_SuccessWithEmailReleasedMoreThan3DaysAgo(t *testing.T) {
+	t.Parallel()
+	store, server, httpClient := given.FreshSetup(t, registeruser.Register)
+
+	// Given: user-1 had the email but released it 4 days ago
+	email := "released@example.com"
+	fourDaysAgo := time.Now().Add(-4 * 24 * time.Hour)
+	given.EventsInStore(store,
+		fairway.NewEvent(event.UserRegistered{Id: "user-1", Name: "existing", Email: email, HashedPassword: "pass"}),
+		fairway.NewEventAt(event.UserChangedTheirEmail{UserId: "user-1", PreviousEmail: email, NewEmail: "new@example.com"}, fourDaysAgo),
+	)
+
+	// When
+	resp, err := httpClient.R().
+		SetBody(map[string]any{
+			"id":       "user-2",
+			"username": "newuser",
+			"email":    email,
+			"password": "newpass",
+		}).
+		Post(apiRoute(server))
+
+	// Then
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusCreated, resp.StatusCode())
+}
+
+func TestRegisterUser_ConflictByUsernameChangedToByOtherUser(t *testing.T) {
+	t.Parallel()
+	store, server, httpClient := given.FreshSetup(t, registeruser.Register)
+
+	// Given: user-1 registered with different name, then changed to the target name
+	username := "takenuser"
+	given.EventsInStore(store,
+		fairway.NewEvent(event.UserRegistered{Id: "user-1", Name: "oldname", Email: "existing@example.com", HashedPassword: "pass"}),
+		fairway.NewEvent(event.UserChangedTheirName{UserId: "user-1", PreviousUsername: "oldname", NewUsername: username}),
+	)
+
+	// When
+	resp, err := httpClient.R().
+		SetBody(map[string]any{
+			"id":       "user-2",
+			"username": username,
+			"email":    "new@example.com",
+			"password": "newpass",
+		}).
+		Post(apiRoute(server))
+
+	// Then
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusConflict, resp.StatusCode())
+}
+
+func TestRegisterUser_SuccessWithUsernameReleasedByOtherUser(t *testing.T) {
+	t.Parallel()
+	store, server, httpClient := given.FreshSetup(t, registeruser.Register)
+
+	// Given: user-1 had the username but released it
+	username := "releasedname"
+	given.EventsInStore(store,
+		fairway.NewEvent(event.UserRegistered{Id: "user-1", Name: username, Email: "existing@example.com", HashedPassword: "pass"}),
+		fairway.NewEvent(event.UserChangedTheirName{UserId: "user-1", PreviousUsername: username, NewUsername: "newname"}),
+	)
+
+	// When
+	resp, err := httpClient.R().
+		SetBody(map[string]any{
+			"id":       "user-2",
+			"username": username,
+			"email":    "new@example.com",
+			"password": "newpass",
+		}).
+		Post(apiRoute(server))
+
+	// Then
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusCreated, resp.StatusCode())
 }
 
 func apiRoute(server *httptest.Server) string {
