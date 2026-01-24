@@ -44,8 +44,8 @@ func httpHandler(reader fairway.EventsReader) http.HandlerFunc {
 					Types(event.UserRegistered{}).
 					Tags(event.UserEmailTagPrefix(req.Email)),
 			),
-			func(te fairway.TaggedEvent) bool {
-				if u, ok := te.(event.UserRegistered); ok {
+			func(e fairway.Event) bool {
+				if u, ok := e.Data.(event.UserRegistered); ok {
 					foundUser = &u
 					return false
 				}

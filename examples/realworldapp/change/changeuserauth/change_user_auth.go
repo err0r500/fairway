@@ -92,26 +92,26 @@ func (cmd command) Run(ctx context.Context, ev fairway.EventReadAppender) error 
 		)
 	}
 
-	if err := ev.ReadEvents(ctx, fairway.QueryItems(queryItems...), func(te fairway.TaggedEvent) bool {
-		switch e := te.(type) {
+	if err := ev.ReadEvents(ctx, fairway.QueryItems(queryItems...), func(e fairway.Event) bool {
+		switch data := e.Data.(type) {
 		case event.UserRegistered:
-			if e.Id == cmd.userID {
-				currentEmail = &e.Email
+			if data.Id == cmd.userID {
+				currentEmail = &data.Email
 				break
 			}
-			if cmd.email != nil && e.Email == *cmd.email {
-				otherHasEmail[e.Id] = true
+			if cmd.email != nil && data.Email == *cmd.email {
+				otherHasEmail[data.Id] = true
 			}
 		case event.UserChangedTheirEmail:
-			if e.UserId == cmd.userID {
-				currentEmail = &e.NewEmail
+			if data.UserId == cmd.userID {
+				currentEmail = &data.NewEmail
 				break
 			}
 			if cmd.email != nil {
-				if e.NewEmail == *cmd.email {
-					otherHasEmail[e.UserId] = true
-				} else if e.PreviousEmail == *cmd.email {
-					otherHasEmail[e.UserId] = false
+				if data.NewEmail == *cmd.email {
+					otherHasEmail[data.UserId] = true
+				} else if data.PreviousEmail == *cmd.email {
+					otherHasEmail[data.UserId] = false
 				}
 			}
 		}
@@ -130,21 +130,21 @@ func (cmd command) Run(ctx context.Context, ev fairway.EventReadAppender) error 
 		}
 	}
 
-	var events []fairway.TaggedEvent
+	var events []fairway.Event
 
 	if cmd.email != nil {
-		events = append(events, event.UserChangedTheirEmail{
+		events = append(events, fairway.NewEvent(event.UserChangedTheirEmail{
 			UserId:        cmd.userID,
 			PreviousEmail: *currentEmail,
 			NewEmail:      *cmd.email,
-		})
+		}))
 	}
 
 	if cmd.cleartextPassword != nil {
-		events = append(events, event.UserChangedTheirPassword{
+		events = append(events, fairway.NewEvent(event.UserChangedTheirPassword{
 			UserId:            cmd.userID,
 			NewHashedPassword: crypto.Hash(*cmd.cleartextPassword),
-		})
+		}))
 	}
 
 	if len(events) == 0 {

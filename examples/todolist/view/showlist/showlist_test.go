@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/err0r500/fairway"
 	"github.com/err0r500/fairway/examples/todolist/event"
 	"github.com/err0r500/fairway/examples/todolist/view/showlist"
 	"github.com/err0r500/fairway/testing/given"
@@ -19,7 +20,7 @@ func TestGetList_Success_NoItem(t *testing.T) {
 	// Given
 	listId := "list-1"
 	listName := "list name"
-	given.EventsInStore(store, event.ListCreated{ListId: listId, Name: listName})
+	given.EventsInStore(store, fairway.NewEvent(event.ListCreated{ListId: listId, Name: listName}))
 
 	// When
 	resp, err := httpClient.R().
@@ -46,9 +47,9 @@ func TestGetList_Success_2Items(t *testing.T) {
 	listId := "list-1"
 	listName := "list name"
 	given.EventsInStore(store,
-		event.ListCreated{ListId: listId, Name: listName},
-		event.ItemCreated{ListId: listId, Id: "1", Text: "i1-text"},
-		event.ItemCreated{ListId: listId, Id: "2", Text: "i2-text"},
+		fairway.NewEvent(event.ListCreated{ListId: listId, Name: listName}),
+		fairway.NewEvent(event.ItemCreated{ListId: listId, Id: "1", Text: "i1-text"}),
+		fairway.NewEvent(event.ItemCreated{ListId: listId, Id: "2", Text: "i2-text"}),
 	)
 
 	// When

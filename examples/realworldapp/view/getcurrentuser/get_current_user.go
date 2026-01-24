@@ -40,28 +40,28 @@ func httpHandler(reader fairway.EventsReader) http.HandlerFunc {
 					Types(event.UserRegistered{}, event.UserChangedTheirName{}, event.UserChangedTheirEmail{}, event.UserChangedDetails{}).
 					Tags(event.UserIdTagPrefix(userID)),
 			),
-			func(te fairway.TaggedEvent) bool {
-				switch e := te.(type) {
+			func(e fairway.Event) bool {
+				switch data := e.Data.(type) {
 				case event.UserRegistered:
 					user = &userState{
-						email:    e.Email,
-						username: e.Name,
+						email:    data.Email,
+						username: data.Name,
 					}
 				case event.UserChangedTheirName:
 					if user != nil {
-						user.username = e.NewUsername
+						user.username = data.NewUsername
 					}
 				case event.UserChangedTheirEmail:
 					if user != nil {
-						user.email = e.NewEmail
+						user.email = data.NewEmail
 					}
 				case event.UserChangedDetails:
 					if user != nil {
-						if e.Bio != nil {
-							user.bio = *e.Bio
+						if data.Bio != nil {
+							user.bio = *data.Bio
 						}
-						if e.Image != nil {
-							user.image = *e.Image
+						if data.Image != nil {
+							user.image = *data.Image
 						}
 					}
 				}

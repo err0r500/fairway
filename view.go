@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"reflect"
+	"time"
 
 	"github.com/err0r500/fairway/dcb"
 )
@@ -48,19 +49,14 @@ func (ra viewReader) ReadEvents(ctx context.Context, query Query, handler Handle
 			return fmt.Errorf("reading events: %s", err)
 		}
 
-		// Deserialize dcb.Event → event
-		fairwayEvent, err := ra.eventRegistry.deserialize(dcbStoredEvent.Event)
+		// Deserialize dcb.Event → Event
+		ev, err := ra.eventRegistry.deserialize(dcbStoredEvent.Event)
 		if err != nil {
 			return fmt.Errorf("deserializing event at position %x: %s", dcbStoredEvent.Position[:], err)
 		}
 
-		te, ok := fairwayEvent.(TaggedEvent)
-		if !ok {
-			return nil
-		}
-
-		// Dispatch TaggedEvent to handler
-		if !handler(te) {
+		// Dispatch Event to handler
+		if !handler(ev) {
 			return nil
 		}
 	}
@@ -92,20 +88,32 @@ func (r eventRegistry) registeredTypeNames() []string {
 	return names
 }
 
-// deserialize converts dcb.Event to typed event
-func (r eventRegistry) deserialize(de dcb.Event) (any, error) {
+// deserialize converts dcb.Event to Event
+func (r eventRegistry) deserialize(de dcb.Event) (Event, error) {
 	typ, ok := r.types[de.Type]
 	if !ok {
-		return nil, fmt.Errorf("unknown event type %q (registered: %v)", de.Type, r.registeredTypeNames())
+		return Event{}, fmt.Errorf("unknown event type %q (registered: %v)", de.Type, r.registeredTypeNames())
 	}
 
-	// Create new instance
+	// Unmarshal envelope to get timestamp and raw data
+	var envelope struct {
+		OccurredAt time.Time       `json:"occurredAt"`
+		Data       json.RawMessage `json:"data"`
+	}
+	if err := json.Unmarshal(de.Data, &envelope); err != nil {
+		return Event{}, fmt.Errorf("json unmarshal envelope for event type %q: %s", de.Type, err)
+	}
+
+	// Create new instance of user's data type
 	ptr := reflect.New(typ)
 
-	// Unmarshal JSON data into it
-	if err := json.Unmarshal(de.Data, ptr.Interface()); err != nil {
-		return nil, fmt.Errorf("json unmarshal for event type %q: %s", de.Type, err)
+	// Unmarshal inner data into it
+	if err := json.Unmarshal(envelope.Data, ptr.Interface()); err != nil {
+		return Event{}, fmt.Errorf("json unmarshal data for event type %q: %s", de.Type, err)
 	}
 
-	return ptr.Elem().Interface(), nil
+	return Event{
+		OccurredAt: envelope.OccurredAt,
+		Data:       ptr.Elem().Interface(),
+	}, nil
 }

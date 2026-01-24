@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/err0r500/fairway"
 	"github.com/err0r500/fairway/examples/realworldapp/crypto"
 	"github.com/err0r500/fairway/examples/realworldapp/event"
 	"github.com/err0r500/fairway/examples/realworldapp/view/login"
@@ -20,12 +21,12 @@ func TestLogin_Success(t *testing.T) {
 	userId := "user-1"
 	email := "john@example.com"
 	password := "secret123"
-	given.EventsInStore(store, event.UserRegistered{
+	given.EventsInStore(store, fairway.NewEvent(event.UserRegistered{
 		Id:             userId,
 		Name:           "johndoe",
 		Email:          email,
 		HashedPassword: crypto.Hash(password),
-	})
+	}))
 
 	// When
 	resp, err := httpClient.R().
@@ -64,12 +65,12 @@ func TestLogin_WrongPassword(t *testing.T) {
 
 	// Given
 	email := "john@example.com"
-	given.EventsInStore(store, event.UserRegistered{
+	given.EventsInStore(store, fairway.NewEvent(event.UserRegistered{
 		Id:             "user-1",
 		Name:           "johndoe",
 		Email:          email,
 		HashedPassword: crypto.Hash("correct-password"),
-	})
+	}))
 
 	// When
 	resp, err := httpClient.R().

@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/err0r500/fairway"
 	"github.com/err0r500/fairway/examples/realworldapp/change/changeuserauth"
 	"github.com/err0r500/fairway/examples/realworldapp/crypto"
 	"github.com/err0r500/fairway/examples/realworldapp/event"
@@ -16,7 +17,7 @@ func TestChangeUserAuth_CanUpdateEmail(t *testing.T) {
 	t.Parallel()
 	store, server, httpClient := given.FreshSetup(t, changeuserauth.Register)
 	currUserId := "user-1"
-	given.EventsInStore(store, event.UserRegistered{Id: currUserId, Name: "john", Email: "john@example.com", HashedPassword: "h"})
+	given.EventsInStore(store, fairway.NewEvent(event.UserRegistered{Id: currUserId, Name: "john", Email: "john@example.com", HashedPassword: "h"}))
 
 	resp, err := httpClient.R().
 		SetHeader("Authorization", "Token "+generateToken(t, currUserId)).
@@ -35,8 +36,8 @@ func TestChangeUserAuth_CannotUpdateEmailToTakenEmail(t *testing.T) {
 	currUserId := "user-1"
 	takenEmail := "taken@example.com"
 	given.EventsInStore(store,
-		event.UserRegistered{Id: currUserId, Name: "john", Email: "john@example.com", HashedPassword: "h"},
-		event.UserRegistered{Id: "user-2", Name: "other", Email: takenEmail, HashedPassword: "h"},
+		fairway.NewEvent(event.UserRegistered{Id: currUserId, Name: "john", Email: "john@example.com", HashedPassword: "h"}),
+		fairway.NewEvent(event.UserRegistered{Id: "user-2", Name: "other", Email: takenEmail, HashedPassword: "h"}),
 	)
 
 	resp, err := httpClient.R().
@@ -54,7 +55,7 @@ func TestChangeUserAuth_CanChangePassword(t *testing.T) {
 	t.Parallel()
 	store, server, httpClient := given.FreshSetup(t, changeuserauth.Register)
 	currUserId := "user-1"
-	given.EventsInStore(store, event.UserRegistered{Id: currUserId, Name: "john", Email: "john@example.com", HashedPassword: "h"})
+	given.EventsInStore(store, fairway.NewEvent(event.UserRegistered{Id: currUserId, Name: "john", Email: "john@example.com", HashedPassword: "h"}))
 
 	resp, err := httpClient.R().
 		SetHeader("Authorization", "Token "+generateToken(t, currUserId)).
@@ -88,9 +89,9 @@ func TestChangeUserAuth_CanUseReleasedEmail(t *testing.T) {
 	otherUserId := "user-2"
 	releasedEmail := "old@example.com"
 	given.EventsInStore(store,
-		event.UserRegistered{Id: currUserId, Name: "john", Email: "john@example.com", HashedPassword: "h"},
-		event.UserRegistered{Id: otherUserId, Name: "other", Email: releasedEmail, HashedPassword: "h"},
-		event.UserChangedTheirEmail{UserId: otherUserId, PreviousEmail: releasedEmail, NewEmail: "new@example.com"},
+		fairway.NewEvent(event.UserRegistered{Id: currUserId, Name: "john", Email: "john@example.com", HashedPassword: "h"}),
+		fairway.NewEvent(event.UserRegistered{Id: otherUserId, Name: "other", Email: releasedEmail, HashedPassword: "h"}),
+		fairway.NewEvent(event.UserChangedTheirEmail{UserId: otherUserId, PreviousEmail: releasedEmail, NewEmail: "new@example.com"}),
 	)
 
 	resp, err := httpClient.R().
@@ -108,7 +109,7 @@ func TestChangeUserAuth_EmptyBodySucceeds(t *testing.T) {
 	t.Parallel()
 	store, server, httpClient := given.FreshSetup(t, changeuserauth.Register)
 	currUserId := "user-1"
-	given.EventsInStore(store, event.UserRegistered{Id: currUserId, Name: "john", Email: "john@example.com", HashedPassword: "h"})
+	given.EventsInStore(store, fairway.NewEvent(event.UserRegistered{Id: currUserId, Name: "john", Email: "john@example.com", HashedPassword: "h"}))
 
 	resp, err := httpClient.R().
 		SetHeader("Authorization", "Token "+generateToken(t, currUserId)).
