@@ -25,8 +25,8 @@ func NewEventAt(data any, ts time.Time) Event {
 	return Event{OccurredAt: ts, Data: data}
 }
 
-// Timestamp returns the event's occurrence time
-func (e Event) Timestamp() time.Time { return e.OccurredAt }
+// OccuredAt returns the event's occurrence time
+func (e Event) OccuredAt() time.Time { return e.OccurredAt }
 
 // Tags returns tags from the underlying data if it implements Tags() []string
 func (e Event) Tags() []string {
