@@ -95,26 +95,26 @@ func (cmd command) Run(ctx context.Context, ev fairway.EventReadAppender) error 
 		)
 	}
 
-	if err := ev.ReadEvents(ctx, fairway.QueryItems(queryItems...), func(te fairway.TaggedEvent) bool {
-		switch e := te.(type) {
+	if err := ev.ReadEvents(ctx, fairway.QueryItems(queryItems...), func(e fairway.Event) bool {
+		switch data := e.Data.(type) {
 		case event.UserRegistered:
-			if e.Id == cmd.userID {
-				currentUsername = &e.Name
+			if data.Id == cmd.userID {
+				currentUsername = &data.Name
 				break
 			}
-			if cmd.username != nil && e.Name == *cmd.username {
-				otherHasUsername[e.Id] = true
+			if cmd.username != nil && data.Name == *cmd.username {
+				otherHasUsername[data.Id] = true
 			}
 		case event.UserChangedTheirName:
-			if e.UserId == cmd.userID {
-				currentUsername = &e.NewUsername
+			if data.UserId == cmd.userID {
+				currentUsername = &data.NewUsername
 				break
 			}
 			if cmd.username != nil {
-				if e.NewUsername == *cmd.username {
-					otherHasUsername[e.UserId] = true
-				} else if e.PreviousUsername == *cmd.username {
-					otherHasUsername[e.UserId] = false
+				if data.NewUsername == *cmd.username {
+					otherHasUsername[data.UserId] = true
+				} else if data.PreviousUsername == *cmd.username {
+					otherHasUsername[data.UserId] = false
 				}
 			}
 		}
@@ -133,22 +133,22 @@ func (cmd command) Run(ctx context.Context, ev fairway.EventReadAppender) error 
 		}
 	}
 
-	var events []fairway.TaggedEvent
+	var events []fairway.Event
 
 	if cmd.username != nil {
-		events = append(events, event.UserChangedTheirName{
+		events = append(events, fairway.NewEvent(event.UserChangedTheirName{
 			UserId:           cmd.userID,
 			PreviousUsername: *currentUsername,
 			NewUsername:      *cmd.username,
-		})
+		}))
 	}
 
 	if cmd.bio != nil || cmd.image != nil {
-		events = append(events, event.UserChangedDetails{
+		events = append(events, fairway.NewEvent(event.UserChangedDetails{
 			UserId: cmd.userID,
 			Bio:    cmd.bio,
 			Image:  cmd.image,
-		})
+		}))
 	}
 
 	if len(events) == 0 {

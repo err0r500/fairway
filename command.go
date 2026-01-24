@@ -161,7 +161,7 @@ func (cr *commandWithEffectRunner[Deps]) RunWithEffect(ctx context.Context, cmd 
 
 type EventReadAppender interface {
 	EventsReader
-	AppendEvents(ctx context.Context, events ...TaggedEvent) error
+	AppendEvents(ctx context.Context, events ...Event) error
 }
 
 // commandReadAppender provides read-then-conditional-append for commands
@@ -208,19 +208,14 @@ func (ra *commandReadAppender) ReadEvents(ctx context.Context, query Query, hand
 		// Track last versionstamp
 		ra.lastSeenVersionstamp = &dcbStoredEvent.Position
 
-		// Deserialize dcb.Event → event
-		fairwayEvent, err := ra.eventRegistry.deserialize(dcbStoredEvent.Event)
+		// Deserialize dcb.Event → Event
+		ev, err := ra.eventRegistry.deserialize(dcbStoredEvent.Event)
 		if err != nil {
 			return fmt.Errorf("deserializing event at position %x: %s", dcbStoredEvent.Position[:], err)
 		}
 
-		te, ok := fairwayEvent.(TaggedEvent)
-		if !ok {
-			return nil
-		}
-
-		// Dispatch TaggedEvent to handler
-		if !handler(te) {
+		// Dispatch Event to handler
+		if !handler(ev) {
 			return nil
 		}
 	}
@@ -229,15 +224,15 @@ func (ra *commandReadAppender) ReadEvents(ctx context.Context, query Query, hand
 }
 
 // AppendEvents appends events with conditional check using tracked versionstamp
-func (ra *commandReadAppender) AppendEvents(ctx context.Context, events ...TaggedEvent) error {
+func (ra *commandReadAppender) AppendEvents(ctx context.Context, events ...Event) error {
 	if len(events) == 0 {
 		return nil
 	}
 
-	// Serialize TaggedEvent → dcb.Event
+	// Serialize Event → dcb.Event
 	dcbEvents := make([]dcb.Event, len(events))
-	for i, taggedEvt := range events {
-		dcbEvent, err := ToDcbEvent(taggedEvt)
+	for i, ev := range events {
+		dcbEvent, err := ToDcbEvent(ev)
 		if err != nil {
 			return err
 		}

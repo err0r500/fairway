@@ -2,6 +2,7 @@ package fairway_test
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/err0r500/fairway/dcb"
 	"pgregory.net/rapid"
@@ -112,8 +113,18 @@ func storedEventGen() *rapid.Generator[dcb.StoredEvent] {
 			typeName = "TestEventC"
 		}
 
-		// Serialize the event to JSON (like the real system does)
-		data, _ := json.Marshal(event)
+		// Serialize the event data
+		eventData, _ := json.Marshal(event)
+
+		// Create envelope with timestamp (like the real system does)
+		envelope := struct {
+			OccurredAt time.Time       `json:"occurredAt"`
+			Data       json.RawMessage `json:"data"`
+		}{
+			OccurredAt: time.Now(),
+			Data:       eventData,
+		}
+		data, _ := json.Marshal(envelope)
 
 		return dcb.StoredEvent{
 			Event: dcb.Event{

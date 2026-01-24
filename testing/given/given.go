@@ -2,25 +2,28 @@ package given
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"testing"
 
+	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"github.com/err0r500/fairway"
 	"github.com/err0r500/fairway/dcb"
+	"github.com/google/uuid"
 	"resty.dev/v3"
 )
 
 // EventsInStore appends events to store without condition (for test setup)
-func EventsInStore(store dcb.DcbStore, e fairway.TaggedEvent, ee ...fairway.TaggedEvent) {
+func EventsInStore(store dcb.DcbStore, e fairway.Event, ee ...fairway.Event) {
 	ctx := context.Background()
 
-	allEvents := append([]fairway.TaggedEvent{e}, ee...)
+	allEvents := append([]fairway.Event{e}, ee...)
 	dcbEvents := make([]dcb.Event, len(allEvents))
 
-	for i, te := range allEvents {
-		dcbEvent, err := fairway.ToDcbEvent(te)
+	for i, ev := range allEvents {
+		dcbEvent, err := fairway.ToDcbEvent(ev)
 		if err != nil {
 			panic(err)
 		}
@@ -33,7 +36,7 @@ func EventsInStore(store dcb.DcbStore, e fairway.TaggedEvent, ee ...fairway.Tagg
 }
 
 func FreshSetup(t *testing.T, registerFn any) (dcb.DcbStore, *httptest.Server, *resty.Client) {
-	store := dcb.SetupTestStore(t)
+	store := SetupTestStore(t)
 	runner := fairway.NewCommandRunner(store)
 	mux := http.NewServeMux()
 
@@ -75,4 +78,25 @@ func FreshSetup(t *testing.T, registerFn any) (dcb.DcbStore, *httptest.Server, *
 		httpClient.Close()
 	})
 	return store, server, httpClient
+}
+
+func SetupTestStore(t *testing.T) dcb.DcbStore {
+	t.Helper()
+
+	fdb.MustAPIVersion(740)
+	db := fdb.MustOpenDefault()
+
+	// Use unique namespace per test
+	namespace := fmt.Sprintf("t-%d", uuid.New())
+	store := dcb.NewDcbStore(db, namespace)
+
+	// Clean up after test
+	t.Cleanup(func() {
+		_, _ = db.Transact(func(tr fdb.Transaction) (any, error) {
+			tr.ClearRange(fdb.KeyRange{Begin: fdb.Key(namespace), End: fdb.Key(namespace + "\xff")})
+			return nil, nil
+		})
+	})
+
+	return store
 }

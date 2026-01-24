@@ -20,7 +20,15 @@ type QueryItem struct {
 }
 
 // HandlerFunc processes an event. Return false to stop iteration.
-type HandlerFunc func(TaggedEvent) bool
+type HandlerFunc func(Event) bool
+
+// resolveEventTypeName determines the event type name for an event instance.
+func resolveEventTypeName(event any) string {
+	if typer, ok := event.(interface{ TypeString() string }); ok {
+		return typer.TypeString()
+	}
+	return reflect.TypeOf(event).Name()
+}
 
 // convertQueryToDcb converts fairway.HandlerQuery to dcb.Query
 func (q Query) toDcb() *dcb.Query {

@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/err0r500/fairway"
 	"github.com/err0r500/fairway/examples/realworldapp/change/registeruser"
 	"github.com/err0r500/fairway/examples/realworldapp/crypto"
 	"github.com/err0r500/fairway/examples/realworldapp/event"
@@ -46,7 +47,11 @@ func TestRegisterUser_Success(t *testing.T) {
 	for e, err := range store.ReadAll(context.Background()) {
 		assert.NoError(t, err)
 		count++
-		assert.NoError(t, json.Unmarshal(e.Data, &stored))
+		var envelope struct {
+			Data json.RawMessage `json:"data"`
+		}
+		assert.NoError(t, json.Unmarshal(e.Data, &envelope))
+		assert.NoError(t, json.Unmarshal(envelope.Data, &stored))
 	}
 	assert.Equal(t, 1, count)
 	assert.Equal(t, userId, stored.Id)
@@ -61,7 +66,7 @@ func TestRegisterUser_ConflictById(t *testing.T) {
 
 	// Given
 	userId := "user-1"
-	initialEvent := event.UserRegistered{Id: userId, Name: "existing", Email: "existing@example.com", HashedPassword: "pass"}
+	initialEvent := fairway.NewEvent(event.UserRegistered{Id: userId, Name: "existing", Email: "existing@example.com", HashedPassword: "pass"})
 	given.EventsInStore(store, initialEvent)
 
 	// When
@@ -86,7 +91,7 @@ func TestRegisterUser_ConflictByEmail(t *testing.T) {
 
 	// Given
 	email := "taken@example.com"
-	initialEvent := event.UserRegistered{Id: "user-1", Name: "existing", Email: email, HashedPassword: "pass"}
+	initialEvent := fairway.NewEvent(event.UserRegistered{Id: "user-1", Name: "existing", Email: email, HashedPassword: "pass"})
 	given.EventsInStore(store, initialEvent)
 
 	// When
@@ -111,7 +116,7 @@ func TestRegisterUser_ConflictByUsername(t *testing.T) {
 
 	// Given
 	username := "takenuser"
-	initialEvent := event.UserRegistered{Id: "user-1", Name: username, Email: "existing@example.com", HashedPassword: "pass"}
+	initialEvent := fairway.NewEvent(event.UserRegistered{Id: "user-1", Name: username, Email: "existing@example.com", HashedPassword: "pass"})
 	given.EventsInStore(store, initialEvent)
 
 	// When

@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/err0r500/fairway"
 	"github.com/err0r500/fairway/examples/todolist/change/additem"
 	"github.com/err0r500/fairway/examples/todolist/event"
 	"github.com/err0r500/fairway/testing/given"
@@ -30,7 +31,7 @@ func TestCreateItem_Success(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusCreated, resp.StatusCode())
 	assert.Empty(t, string(resp.Bytes()))
-	then.ExpectEventsInStore(t, store, event.ItemCreated{Id: itemId, ListId: listId, Text: itemText})
+	then.ExpectEventsInStore(t, store, fairway.NewEvent(event.ItemCreated{Id: itemId, ListId: listId, Text: itemText}))
 }
 
 func TestCreateItem_Conflict(t *testing.T) {
@@ -40,7 +41,7 @@ func TestCreateItem_Conflict(t *testing.T) {
 	// Given
 	itemId := "item-1"
 	listId := "list-1"
-	initialEvent := event.ItemCreated{Id: itemId, ListId: "list 1 name", Text: ""}
+	initialEvent := fairway.NewEvent(event.ItemCreated{Id: itemId, ListId: "list 1 name", Text: ""})
 	given.EventsInStore(store, initialEvent)
 
 	// When

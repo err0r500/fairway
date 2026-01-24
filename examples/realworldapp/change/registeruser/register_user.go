@@ -82,8 +82,8 @@ func (cmd command) Run(ctx context.Context, ev fairway.EventReadAppender) error 
 				Types(event.UserRegistered{}).
 				Tags(event.UserEmailTagPrefix(cmd.email)),
 		),
-		func(te fairway.TaggedEvent) bool {
-			switch te.(type) {
+		func(e fairway.Event) bool {
+			switch e.Data.(type) {
 			case event.UserRegistered:
 				conflict = true
 				return false
@@ -98,10 +98,10 @@ func (cmd command) Run(ctx context.Context, ev fairway.EventReadAppender) error 
 		return conflictErr
 	}
 
-	return ev.AppendEvents(ctx, event.UserRegistered{
+	return ev.AppendEvents(ctx, fairway.NewEvent(event.UserRegistered{
 		Id:             cmd.id,
 		Name:           cmd.name,
 		Email:          cmd.email,
 		HashedPassword: cmd.hashedPassword,
-	})
+	}))
 }
