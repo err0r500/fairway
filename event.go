@@ -17,7 +17,7 @@ type Event struct {
 
 // NewEvent creates an event with auto-generated timestamp
 func NewEvent(data any) Event {
-	return Event{OccurredAt: clock(), Data: data}
+	return Event{OccurredAt: time.Now(), Data: data}
 }
 
 // NewEventAt creates an event with explicit timestamp (for migrations, replays, tests)
@@ -42,16 +42,6 @@ func (e Event) typeString() string {
 		return typer.TypeString()
 	}
 	return reflect.TypeOf(e.Data).Name()
-}
-
-// Package-level clock for test injection
-var clock func() time.Time = time.Now
-
-// SetClock replaces the clock for tests, returns a restore function
-func SetClock(c func() time.Time) func() {
-	old := clock
-	clock = c
-	return func() { clock = old }
 }
 
 // ToDcbEvent serializes an Event to dcb.Event
