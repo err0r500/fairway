@@ -8,8 +8,8 @@ type UserChangedTheirEmail struct {
 
 func (e UserChangedTheirEmail) Tags() []string {
 	return []string{
-		UserIdTagPrefix(e.UserId),
-		UserEmailTagPrefix(e.NewEmail),
-		UserEmailTagPrefix(e.PreviousEmail),
+		UserIdTag(e.UserId),
+		UserEmailTag(e.NewEmail),
+		UserEmailTag(e.PreviousEmail),
 	}
 }

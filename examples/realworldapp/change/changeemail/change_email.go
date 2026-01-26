@@ -86,10 +86,10 @@ func (cmd command) Run(ctx context.Context, ev fairway.EventReadAppender) error 
 		fairway.QueryItems(
 			fairway.NewQueryItem().
 				Types(event.UserRegistered{}, event.UserChangedTheirEmail{}).
-				Tags(event.UserIdTagPrefix(cmd.userID)),
+				Tags(event.UserIdTag(cmd.userID)),
 			fairway.NewQueryItem().
 				Types(event.UserRegistered{}, event.UserChangedTheirEmail{}).
-				Tags(event.UserEmailTagPrefix(cmd.email)),
+				Tags(event.UserEmailTag(cmd.email)),
 		),
 		func(e fairway.Event) bool {
 			switch data := e.Data.(type) {

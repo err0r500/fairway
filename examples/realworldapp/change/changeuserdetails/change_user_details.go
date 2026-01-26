@@ -85,13 +85,13 @@ func (cmd command) Run(ctx context.Context, ev fairway.EventReadAppender) error 
 	queryItems := []fairway.QueryItem{
 		fairway.NewQueryItem().
 			Types(event.UserRegistered{}, event.UserChangedTheirName{}).
-			Tags(event.UserIdTagPrefix(cmd.userID)),
+			Tags(event.UserIdTag(cmd.userID)),
 	}
 	if cmd.username != nil {
 		queryItems = append(queryItems,
 			fairway.NewQueryItem().
 				Types(event.UserRegistered{}, event.UserChangedTheirName{}).
-				Tags(event.UserNameTagPrefix(*cmd.username)),
+				Tags(event.UserNameTag(*cmd.username)),
 		)
 	}
 

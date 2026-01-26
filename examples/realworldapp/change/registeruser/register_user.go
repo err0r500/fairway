@@ -83,19 +83,21 @@ func (cmd command) Run(ctx context.Context, ev fairway.EventReadAppender) error 
 		fairway.QueryItems(
 			fairway.NewQueryItem().
 				Types(event.UserRegistered{}).
-				Tags(event.UserIdTagPrefix(cmd.id)),
+				Tags(event.UserIdTag(cmd.id)),
 			fairway.NewQueryItem().
 				Types(event.UserRegistered{}, event.UserChangedTheirName{}).
-				Tags(event.UserNameTagPrefix(cmd.name)),
+				Tags(event.UserNameTag(cmd.name)),
 			fairway.NewQueryItem().
 				Types(event.UserRegistered{}, event.UserChangedTheirEmail{}).
-				Tags(event.UserEmailTagPrefix(cmd.email)),
+				Tags(event.UserEmailTag(cmd.email)),
 		),
 		func(e fairway.Event) bool {
+			continueIterating := true
 			switch data := e.Data.(type) {
 			case event.UserRegistered:
 				if data.Id == cmd.id {
 					idTaken = true
+					continueIterating = false
 					break // if another user registered with this id, no need to see more
 				}
 				if data.Email == cmd.email {
@@ -118,7 +120,7 @@ func (cmd command) Run(ctx context.Context, ev fairway.EventReadAppender) error 
 					nameOwnership[data.UserId] = false // released it
 				}
 			}
-			return true
+			return continueIterating
 		}); err != nil {
 		return err
 	}

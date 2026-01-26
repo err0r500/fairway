@@ -7,5 +7,5 @@ type UserChangedDetails struct {
 }
 
 func (e UserChangedDetails) Tags() []string {
-	return []string{UserIdTagPrefix(e.UserId)}
+	return []string{UserIdTag(e.UserId)}
 }

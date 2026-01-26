@@ -9,8 +9,8 @@ type UserRegistered struct {
 
 func (e UserRegistered) Tags() []string {
 	return []string{
-		UserIdTagPrefix(e.Id),
-		UserNameTagPrefix(e.Name),
-		UserEmailTagPrefix(e.Email),
+		UserIdTag(e.Id),
+		UserNameTag(e.Name),
+		UserEmailTag(e.Email),
 	}
 }

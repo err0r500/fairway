@@ -72,7 +72,7 @@ func (cmd command) Run(ctx context.Context, ev fairway.EventReadAppender) error 
 		fairway.QueryItems(
 			fairway.NewQueryItem().
 				Types(event.UserRegistered{}).
-				Tags(event.UserIdTagPrefix(cmd.userID)),
+				Tags(event.UserIdTag(cmd.userID)),
 		),
 		func(e fairway.Event) bool {
 			if data, ok := e.Data.(event.UserRegistered); ok && data.Id == cmd.userID {

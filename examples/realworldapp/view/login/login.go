@@ -42,7 +42,7 @@ func httpHandler(reader fairway.EventsReader) http.HandlerFunc {
 			fairway.QueryItems(
 				fairway.NewQueryItem().
 					Types(event.UserRegistered{}).
-					Tags(event.UserEmailTagPrefix(req.Email)),
+					Tags(event.UserEmailTag(req.Email)),
 			),
 			func(e fairway.Event) bool {
 				if u, ok := e.Data.(event.UserRegistered); ok {

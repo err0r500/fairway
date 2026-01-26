@@ -38,7 +38,7 @@ func httpHandler(reader fairway.EventsReader) http.HandlerFunc {
 			fairway.QueryItems(
 				fairway.NewQueryItem().
 					Types(event.UserRegistered{}, event.UserChangedTheirName{}, event.UserChangedTheirEmail{}, event.UserChangedDetails{}).
-					Tags(event.UserIdTagPrefix(userID)),
+					Tags(event.UserIdTag(userID)),
 			),
 			func(e fairway.Event) bool {
 				switch data := e.Data.(type) {

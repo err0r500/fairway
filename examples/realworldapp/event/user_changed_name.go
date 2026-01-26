@@ -8,8 +8,8 @@ type UserChangedTheirName struct {
 
 func (e UserChangedTheirName) Tags() []string {
 	return []string{
-		UserIdTagPrefix(e.UserId),
-		UserNameTagPrefix(e.NewUsername),
-		UserNameTagPrefix(e.PreviousUsername),
+		UserIdTag(e.UserId),
+		UserNameTag(e.NewUsername),
+		UserNameTag(e.PreviousUsername),
 	}
 }

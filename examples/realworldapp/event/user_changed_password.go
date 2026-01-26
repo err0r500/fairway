@@ -6,5 +6,5 @@ type UserChangedTheirPassword struct {
 }
 
 func (e UserChangedTheirPassword) Tags() []string {
-	return []string{UserIdTagPrefix(e.UserId)}
+	return []string{UserIdTag(e.UserId)}
 }
