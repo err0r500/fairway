@@ -44,6 +44,7 @@ type sendWelcomeEmailCmd struct {
 
 func (c sendWelcomeEmailCmd) Run(ctx context.Context, ra fairway.EventReadAppender, deps Deps) error {
 	alreadySent := false
+
 	if err := ra.ReadEvents(ctx, fairway.QueryItems(
 		fairway.NewQueryItem().Types(event.UserWelcomeEmailSent{}).Tags(event.UserIdTag(c.UserId)),
 	), func(e fairway.Event) bool {
