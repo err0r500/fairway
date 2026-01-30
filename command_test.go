@@ -6,6 +6,7 @@ import (
 	"iter"
 	"testing"
 
+	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"github.com/avast/retry-go/v4"
 	"github.com/err0r500/fairway"
 	"github.com/err0r500/fairway/dcb"
@@ -752,6 +753,9 @@ func (m *mockStore) Append(ctx context.Context, events []dcb.Event, condition *d
 func (m *mockStore) ReadAll(ctx context.Context) iter.Seq2[dcb.StoredEvent, error] {
 	panic("ReadAll not implemented in mock")
 }
+
+func (m *mockStore) Database() fdb.Database { return fdb.Database{} }
+func (m *mockStore) Namespace() string      { return "mock" }
 
 // testCommand provides hooks for observing command execution
 type testCommand struct {

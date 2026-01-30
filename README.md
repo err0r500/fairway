@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./fairway.png">
+  <img src="./doc/fairway.png">
 </p>
 
 ## ⚠️ Experimental (Work in Progress)
@@ -42,7 +42,7 @@ Golang framework for building micromodule systems using eventsourcing with [Dyna
 
 ---
 
-> -- Is it a good idea ? 
+> -- Is it a good idea ?
 >
 > -- I'm not sure, yet.
 >
