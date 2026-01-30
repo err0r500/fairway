@@ -25,11 +25,11 @@ type Deps struct {
 
 func factory(store dcb.DcbStore, allDeps automate.AllDeps) (automate.Startable, error) {
 	return fairway.NewAutomation(
-		store,
-		Deps{EmailSender: allDeps.EmailSender},
-		"welcome-email",
-		event.UserRegistered{},
-		eventToCommand,
+		store,                                  // DCB store
+		Deps{EmailSender: allDeps.EmailSender}, // provide the dependencies implementations to the command
+		"welcome-email",                        // unique queue identifier
+		event.UserRegistered{},                 // the event-type that triggers the automation
+		eventToCommand,                         // mapping to construct the command from the trigger event
 	)
 }
 
