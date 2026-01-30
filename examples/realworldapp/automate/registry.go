@@ -34,7 +34,7 @@ type AutomationRegistry struct {
 	factories []AutomationFactory
 }
 
-func (r *AutomationRegistry) Register(f AutomationFactory) {
+func (r *AutomationRegistry) RegisterAutomation(f AutomationFactory) {
 	r.factories = append(r.factories, f)
 }
 

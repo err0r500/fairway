@@ -14,25 +14,26 @@ func init() {
 	Register(&automate.Registry)
 }
 
-// Register adds this automation to the registry (public for tests)
-func Register(registry *automate.AutomationRegistry) {
-	registry.Register(factory)
-}
-
 // Deps for this automation
 type Deps struct {
 	EmailSender automate.EmailSender
 }
 
-func factory(store dcb.DcbStore, allDeps automate.AllDeps) (automate.Startable, error) {
-	return fairway.NewAutomation(
-		store,                                  // DCB store
-		Deps{EmailSender: allDeps.EmailSender}, // provide the dependencies implementations to the command
-		"welcome-email",                        // unique queue identifier
-		event.UserRegistered{},                 // the event-type that triggers the automation
-		eventToCommand,                         // mapping to construct the command from the trigger event
+// Register adds this automation to the registry (public for tests)
+func Register(registry *automate.AutomationRegistry) {
+	registry.RegisterAutomation(
+		func(store dcb.DcbStore, deps automate.AllDeps) (automate.Startable, error) {
+			return fairway.NewAutomation(
+				store,                                  // DCB store
+				Deps{EmailSender: deps.EmailSender}, // provide the dependencies implementations to the command
+				"welcome-email",                        // unique queue identifier
+				event.UserRegistered{},                 // the event-type that triggers the automation
+				eventToCommand,                         // mapping to construct the command from the trigger event
+			)
+		},
 	)
 }
+
 
 func eventToCommand(ev fairway.Event) fairway.CommandWithEffect[Deps] {
 	data := ev.Data.(event.UserRegistered)
