@@ -29,6 +29,8 @@ type DcbStore interface {
 	Append(ctx context.Context, events []Event, condition *AppendCondition) error
 	Read(ctx context.Context, query Query, opts *ReadOptions) iter.Seq2[StoredEvent, error]
 	ReadAll(ctx context.Context) iter.Seq2[StoredEvent, error]
+	Database() fdb.Database
+	Namespace() string
 }
 
 // Event represents a single event in the event store
@@ -97,7 +99,8 @@ type StoredEvent struct {
 
 // fdbStore provides lock-free event storage with dual-index structure
 type fdbStore struct {
-	db fdb.Database
+	db        fdb.Database
+	namespace string
 
 	// Subspaces
 	events subspace.Subspace // Primary event storage: (versionstamp) -> encoded event
@@ -108,6 +111,9 @@ type fdbStore struct {
 	metrics Metrics
 	logger  Logger
 }
+
+func (s *fdbStore) Database() fdb.Database { return s.db }
+func (s *fdbStore) Namespace() string      { return s.namespace }
 
 // NewDcbStore creates a new event store with the given database and namespace
 func NewDcbStore(db fdb.Database, namespace string, opts ...func(o *fdbStore)) DcbStore {
@@ -138,12 +144,13 @@ func (StoreOptions) WithMetrics(m Metrics) func(s *fdbStore) {
 func newConcreteEventStore(db fdb.Database, namespace string) *fdbStore {
 	root := subspace.Sub(namespace)
 	return &fdbStore{
-		db:      db,
-		events:  root.Sub("e"),
-		byType:  root.Sub("t"),
-		byTag:   root.Sub("g"),
-		metrics: noopMetrics{},
-		logger:  noopLogger{},
+		db:        db,
+		namespace: namespace,
+		events:    root.Sub("e"),
+		byType:    root.Sub("t"),
+		byTag:     root.Sub("g"),
+		metrics:   noopMetrics{},
+		logger:    noopLogger{},
 	}
 }
 

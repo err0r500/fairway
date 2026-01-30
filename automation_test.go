@@ -1,5 +1,3 @@
-//go:build test
-
 package fairway_test
 
 import (
@@ -58,23 +56,20 @@ func (c *TestCommand) Run(ctx context.Context, ra fairway.EventReadAppender, dep
 	return nil
 }
 
-func setupTestAutomation(t *testing.T, dcbNs, automationNs string, deps TestDeps, opts ...fairway.AutomationOption[TestDeps]) (*fairway.Automation[TestDeps], dcb.DcbStore, fairway.CommandWithEffectRunner[TestDeps]) {
+func setupTestAutomation(t *testing.T, dcbNs, queueId string, deps TestDeps, opts ...fairway.AutomationOption[TestDeps]) (*fairway.Automation[TestDeps], dcb.DcbStore) {
 	t.Helper()
 
 	db := fdb.MustOpenDefault()
-
 	store := dcb.NewDcbStore(db, dcbNs)
-	runner := fairway.NewCommandWithEffectRunner(store, deps)
 
 	handler := func(ev fairway.Event) fairway.CommandWithEffect[TestDeps] {
 		return &TestCommand{Event: ev, Deps: &deps}
 	}
 
 	automation, err := fairway.NewAutomation(
-		db,
-		dcbNs,
-		automationNs,
-		runner,
+		store,
+		deps,
+		queueId,
 		TestAutomationEvent{},
 		handler,
 		opts...,
@@ -83,20 +78,18 @@ func setupTestAutomation(t *testing.T, dcbNs, automationNs string, deps TestDeps
 
 	t.Cleanup(func() {
 		automation.Stop()
-		// Clean up namespaces
 		_, _ = db.Transact(func(tr fdb.Transaction) (any, error) {
 			tr.ClearRange(fdb.KeyRange{Begin: fdb.Key(dcbNs), End: fdb.Key(dcbNs + "\xff")})
-			tr.ClearRange(fdb.KeyRange{Begin: fdb.Key(automationNs), End: fdb.Key(automationNs + "\xff")})
 			return nil, nil
 		})
 	})
 
-	return automation, store, runner
+	return automation, store
 }
 
 func TestAutomation_BasicEventProcessing(t *testing.T) {
 	dcbNs := fmt.Sprintf("test-dcb-%s", uuid.NewString())
-	automationNs := fmt.Sprintf("test-auto-%s", uuid.NewString())
+	queueId := "test-queue"
 
 	handlerCalled := &atomic.Int32{}
 	var lastEvent fairway.Event
@@ -106,7 +99,7 @@ func TestAutomation_BasicEventProcessing(t *testing.T) {
 		LastEvent:     &lastEvent,
 	}
 
-	automation, store, _ := setupTestAutomation(t, dcbNs, automationNs, deps,
+	automation, store := setupTestAutomation(t, dcbNs, queueId, deps,
 		fairway.WithPollInterval[TestDeps](10*time.Millisecond),
 	)
 
@@ -118,7 +111,8 @@ func TestAutomation_BasicEventProcessing(t *testing.T) {
 	require.NoError(t, err)
 
 	// Append an event
-	testEvent := TestAutomationEvent{UserID: "user-123"}
+	userId := "user-123"
+	testEvent := TestAutomationEvent{UserID: userId}
 	dcbEvent, err := fairway.ToDcbEvent(fairway.NewEvent(testEvent))
 	require.NoError(t, err)
 
@@ -134,14 +128,14 @@ func TestAutomation_BasicEventProcessing(t *testing.T) {
 	if lastEvent.Data != nil {
 		eventData, ok := lastEvent.Data.(TestAutomationEvent)
 		if ok {
-			assert.Equal(t, "user-123", eventData.UserID)
+			assert.Equal(t, userId, eventData.UserID)
 		}
 	}
 }
 
 func TestAutomation_CursorPersistence(t *testing.T) {
 	dcbNs := fmt.Sprintf("test-dcb-%s", uuid.NewString())
-	automationNs := fmt.Sprintf("test-auto-%s", uuid.NewString())
+	queueId := "test-queue"
 
 	handlerCalled := &atomic.Int32{}
 	var lastEvent fairway.Event
@@ -153,7 +147,6 @@ func TestAutomation_CursorPersistence(t *testing.T) {
 
 	db := fdb.MustOpenDefault()
 	store := dcb.NewDcbStore(db, dcbNs)
-	runner := fairway.NewCommandWithEffectRunner(store, deps)
 
 	handler := func(ev fairway.Event) fairway.CommandWithEffect[TestDeps] {
 		return &TestCommand{Event: ev, Deps: &deps}
@@ -162,7 +155,6 @@ func TestAutomation_CursorPersistence(t *testing.T) {
 	t.Cleanup(func() {
 		_, _ = db.Transact(func(tr fdb.Transaction) (any, error) {
 			tr.ClearRange(fdb.KeyRange{Begin: fdb.Key(dcbNs), End: fdb.Key(dcbNs + "\xff")})
-			tr.ClearRange(fdb.KeyRange{Begin: fdb.Key(automationNs), End: fdb.Key(automationNs + "\xff")})
 			return nil, nil
 		})
 	})
@@ -176,7 +168,7 @@ func TestAutomation_CursorPersistence(t *testing.T) {
 
 	// Start automation, process first event, then stop
 	automation1, err := fairway.NewAutomation(
-		db, dcbNs, automationNs, runner, TestAutomationEvent{}, handler,
+		store, deps, queueId, TestAutomationEvent{}, handler,
 		fairway.WithPollInterval[TestDeps](10*time.Millisecond),
 	)
 	require.NoError(t, err)
@@ -202,7 +194,7 @@ func TestAutomation_CursorPersistence(t *testing.T) {
 
 	// Start new automation instance
 	automation2, err := fairway.NewAutomation(
-		db, dcbNs, automationNs, runner, TestAutomationEvent{}, handler,
+		store, deps, queueId, TestAutomationEvent{}, handler,
 		fairway.WithPollInterval[TestDeps](10*time.Millisecond),
 	)
 	require.NoError(t, err)
@@ -224,7 +216,7 @@ func TestAutomation_CursorPersistence(t *testing.T) {
 
 func TestAutomation_RetryOnFailure(t *testing.T) {
 	dcbNs := fmt.Sprintf("test-dcb-%s", uuid.NewString())
-	automationNs := fmt.Sprintf("test-auto-%s", uuid.NewString())
+	queueId := "test-queue"
 
 	failCount := &atomic.Int32{}
 	handlerCalled := &atomic.Int32{}
@@ -237,7 +229,7 @@ func TestAutomation_RetryOnFailure(t *testing.T) {
 		FailCount:     failCount,
 	}
 
-	automation, store, _ := setupTestAutomation(t, dcbNs, automationNs, deps,
+	automation, store := setupTestAutomation(t, dcbNs, queueId, deps,
 		fairway.WithPollInterval[TestDeps](10*time.Millisecond),
 		fairway.WithMaxAttempts[TestDeps](3),
 	)
@@ -262,7 +254,7 @@ func TestAutomation_RetryOnFailure(t *testing.T) {
 
 func TestAutomation_DLQAfterMaxAttempts(t *testing.T) {
 	dcbNs := fmt.Sprintf("test-dcb-%s", uuid.NewString())
-	automationNs := fmt.Sprintf("test-auto-%s", uuid.NewString())
+	queueId := "test-queue"
 
 	failCount := &atomic.Int32{}
 	handlerCalled := &atomic.Int32{}
@@ -275,7 +267,7 @@ func TestAutomation_DLQAfterMaxAttempts(t *testing.T) {
 		FailCount:     failCount,
 	}
 
-	automation, store, _ := setupTestAutomation(t, dcbNs, automationNs, deps,
+	automation, store := setupTestAutomation(t, dcbNs, queueId, deps,
 		fairway.WithPollInterval[TestDeps](10*time.Millisecond),
 		fairway.WithMaxAttempts[TestDeps](2),                      // Low for faster test
 		fairway.WithRetryBaseWait[TestDeps](10*time.Millisecond), // Short backoff for testing
@@ -308,7 +300,7 @@ func TestAutomation_DLQAfterMaxAttempts(t *testing.T) {
 
 func TestAutomation_NoDuplicateProcessing(t *testing.T) {
 	dcbNs := fmt.Sprintf("test-dcb-%s", uuid.NewString())
-	automationNs := fmt.Sprintf("test-auto-%s", uuid.NewString())
+	queueId := "test-queue"
 
 	handlerCalled := &atomic.Int32{}
 	var lastEvent fairway.Event
@@ -318,7 +310,7 @@ func TestAutomation_NoDuplicateProcessing(t *testing.T) {
 		LastEvent:     &lastEvent,
 	}
 
-	automation, store, _ := setupTestAutomation(t, dcbNs, automationNs, deps,
+	automation, store := setupTestAutomation(t, dcbNs, queueId, deps,
 		fairway.WithPollInterval[TestDeps](10*time.Millisecond),
 		fairway.WithNumWorkers[TestDeps](4), // Multiple workers
 	)
@@ -344,7 +336,7 @@ func TestAutomation_NoDuplicateProcessing(t *testing.T) {
 
 func TestAutomation_LeaseExpiry(t *testing.T) {
 	dcbNs := fmt.Sprintf("test-dcb-%s", uuid.NewString())
-	automationNs := fmt.Sprintf("test-auto-%s", uuid.NewString())
+	queueId := "test-queue"
 
 	handlerCalled := &atomic.Int32{}
 	var lastEvent fairway.Event
@@ -356,7 +348,6 @@ func TestAutomation_LeaseExpiry(t *testing.T) {
 
 	db := fdb.MustOpenDefault()
 	store := dcb.NewDcbStore(db, dcbNs)
-	runner := fairway.NewCommandWithEffectRunner(store, deps)
 
 	handler := func(ev fairway.Event) fairway.CommandWithEffect[TestDeps] {
 		return &TestCommand{Event: ev, Deps: &deps}
@@ -365,7 +356,6 @@ func TestAutomation_LeaseExpiry(t *testing.T) {
 	t.Cleanup(func() {
 		_, _ = db.Transact(func(tr fdb.Transaction) (any, error) {
 			tr.ClearRange(fdb.KeyRange{Begin: fdb.Key(dcbNs), End: fdb.Key(dcbNs + "\xff")})
-			tr.ClearRange(fdb.KeyRange{Begin: fdb.Key(automationNs), End: fdb.Key(automationNs + "\xff")})
 			return nil, nil
 		})
 	})
@@ -380,7 +370,7 @@ func TestAutomation_LeaseExpiry(t *testing.T) {
 
 	// Start first automation with very short lease
 	automation1, err := fairway.NewAutomation(
-		db, dcbNs, automationNs, runner, TestAutomationEvent{}, handler,
+		store, deps, queueId, TestAutomationEvent{}, handler,
 		fairway.WithPollInterval[TestDeps](10*time.Millisecond),
 		fairway.WithLeaseTTL[TestDeps](50*time.Millisecond), // Very short lease
 	)
@@ -403,7 +393,7 @@ func TestAutomation_LeaseExpiry(t *testing.T) {
 
 func TestAutomation_MultipleEvents(t *testing.T) {
 	dcbNs := fmt.Sprintf("test-dcb-%s", uuid.NewString())
-	automationNs := fmt.Sprintf("test-auto-%s", uuid.NewString())
+	queueId := "test-queue"
 
 	handlerCalled := &atomic.Int32{}
 	var lastEvent fairway.Event
@@ -413,7 +403,7 @@ func TestAutomation_MultipleEvents(t *testing.T) {
 		LastEvent:     &lastEvent,
 	}
 
-	automation, store, _ := setupTestAutomation(t, dcbNs, automationNs, deps,
+	automation, store := setupTestAutomation(t, dcbNs, queueId, deps,
 		fairway.WithPollInterval[TestDeps](10*time.Millisecond),
 	)
 

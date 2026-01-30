@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"log/slog"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"github.com/err0r500/fairway"
 	"github.com/err0r500/fairway/dcb"
+	"github.com/err0r500/fairway/examples/realworldapp/automate"
 	"github.com/err0r500/fairway/examples/realworldapp/change"
 	"github.com/err0r500/fairway/examples/realworldapp/view"
 )
@@ -27,6 +29,15 @@ func main() {
 
 	// core
 	coreStore := dcb.NewDcbStore(db, "realworldapp", dcb.StoreOptions{}.WithLogger(logger))
+
+	// Start automations
+	stopAutomations, err := automate.Registry.StartAll(context.Background(), coreStore, automate.AllDeps{
+		EmailSender: &LoggingEmailSender{},
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer stopAutomations()
 
 	// Setup router
 	mux := http.NewServeMux()

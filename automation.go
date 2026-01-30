@@ -12,6 +12,7 @@ import (
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"github.com/apple/foundationdb/bindings/go/src/fdb/subspace"
 	"github.com/apple/foundationdb/bindings/go/src/fdb/tuple"
+	"github.com/err0r500/fairway/dcb"
 )
 
 // AutomationConfig configures automation behavior
@@ -41,6 +42,7 @@ func defaultConfig() AutomationConfig {
 // Automation watches for events and executes handlers
 type Automation[Deps any] struct {
 	// Config
+	queueId       string
 	eventType     string
 	eventRegistry eventRegistry
 	handler       func(Event) CommandWithEffect[Deps]
@@ -132,10 +134,9 @@ func WithRetryBaseWait[Deps any](d time.Duration) AutomationOption[Deps] {
 
 // NewAutomation creates a new automation instance
 func NewAutomation[Deps any](
-	db fdb.Database,
-	dcbNamespace string,
-	automationNamespace string,
-	runner CommandWithEffectRunner[Deps],
+	store dcb.DcbStore,
+	deps Deps,
+	queueId string,
 	eventTypeExample any,
 	handler func(Event) CommandWithEffect[Deps],
 	opts ...AutomationOption[Deps],
@@ -143,16 +144,20 @@ func NewAutomation[Deps any](
 	if handler == nil {
 		return nil, errors.New("handler is required")
 	}
-	if runner == nil {
-		return nil, errors.New("runner is required")
+	if store == nil {
+		return nil, errors.New("store is required")
 	}
+
+	db := store.Database()
+	dcbNamespace := store.Namespace()
+	runner := NewCommandWithEffectRunner(store, deps)
 
 	// Resolve event type name
 	eventType := resolveEventTypeName(eventTypeExample)
 
 	// Build subspaces
 	dcbRoot := subspace.Sub(dcbNamespace)
-	automationRoot := subspace.Sub(automationNamespace)
+	automationRoot := subspace.Sub(dcbNamespace + "/" + queueId)
 
 	// Generate worker ID
 	var workerID [16]byte
@@ -165,6 +170,7 @@ func NewAutomation[Deps any](
 	registry.types[eventType] = reflect.TypeOf(eventTypeExample)
 
 	a := &Automation[Deps]{
+		queueId:        queueId,
 		eventType:      eventType,
 		eventRegistry:  registry,
 		handler:        handler,
@@ -230,6 +236,11 @@ func (a *Automation[Deps]) Wait() error {
 		return errors.Join(errs...)
 	}
 	return nil
+}
+
+// QueueId returns the queue identifier for this automation
+func (a *Automation[Deps]) QueueId() string {
+	return a.queueId
 }
 
 // Errors returns the error channel for monitoring
