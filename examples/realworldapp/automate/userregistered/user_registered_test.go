@@ -1,22 +1,18 @@
-//go:build test
-
 package userregistered_test
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"github.com/err0r500/fairway"
 	"github.com/err0r500/fairway/dcb"
 	"github.com/err0r500/fairway/examples/realworldapp/automate"
 	"github.com/err0r500/fairway/examples/realworldapp/automate/userregistered"
 	"github.com/err0r500/fairway/examples/realworldapp/event"
 	"github.com/err0r500/fairway/testing/given"
-	"github.com/google/uuid"
+	"github.com/err0r500/fairway/testing/then"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -47,41 +43,37 @@ func (s *InMemoryEmailSender) Sent() []SentEmail {
 func TestUserRegistered_SendsWelcomeEmail(t *testing.T) {
 	t.Parallel()
 
-	fdb.MustAPIVersion(740)
-	db := fdb.MustOpenDefault()
-	dcbNs := fmt.Sprintf("t-%s", uuid.NewString())
-
-	store := dcb.NewDcbStore(db, dcbNs)
-
-	t.Cleanup(func() {
-		_, _ = db.Transact(func(tr fdb.Transaction) (any, error) {
-			tr.ClearRange(fdb.KeyRange{Begin: fdb.Key(dcbNs), End: fdb.Key(dcbNs + "\xff")})
-			return nil, nil
-		})
-	})
-
+	store := given.SetupTestStore(t)
 	emailSender := &InMemoryEmailSender{}
-
 	registry := &automate.AutomationRegistry{}
 	userregistered.Register(registry)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	stopFn, err := registry.StartAll(ctx, store, automate.AllDeps{EmailSender: emailSender})
+	stopFn, err := registry.StartAll(t.Context(), store, automate.AllDeps{EmailSender: emailSender})
 	require.NoError(t, err)
 	defer stopFn()
 
 	// Given/When: UserRegistered event
-	given.EventsInStore(store, fairway.NewEvent(event.UserRegistered{
+	initialEvent := event.UserRegistered{
 		Id:    "user-1",
 		Name:  "johndoe",
 		Email: "john@example.com",
-	}))
+	}
+	given.EventsInStore(store, fairway.NewEvent(initialEvent))
+
+	// when
+	waitForEventCountInStore(t, store, 2)
 
 	// Then
+	assert.Equal(t, emailSender.Sent(), []SentEmail{{Email: initialEvent.Email, Name: initialEvent.Name}})
+	then.ExpectEventsInStore(t, store, fairway.NewEvent(initialEvent), fairway.NewEvent(event.UserWelcomeEmailSent{UserId: initialEvent.Id}))
+}
+
+func waitForEventCountInStore(t *testing.T, store dcb.DcbStore, count int) {
 	assert.Eventually(t, func() bool {
-		sent := emailSender.Sent()
-		return len(sent) == 1 && sent[0].Email == "john@example.com" && sent[0].Name == "johndoe"
-	}, 2*time.Second, 10*time.Millisecond, "welcome email should be sent")
+		eventsCount := 0
+		for range store.ReadAll(t.Context()) {
+			eventsCount++
+		}
+		return eventsCount == count
+	}, 2*time.Second, 10*time.Millisecond, "events should be in store")
+
 }

@@ -2,6 +2,7 @@ package userregistered
 
 import (
 	"context"
+	"log"
 
 	"github.com/err0r500/fairway"
 	"github.com/err0r500/fairway/dcb"
@@ -59,5 +60,11 @@ func (c sendWelcomeEmailCmd) Run(ctx context.Context, ra fairway.EventReadAppend
 		return nil
 	}
 
-	return deps.EmailSender.SendWelcomeEmail(ctx, c.Email, c.Name)
+	if err := deps.EmailSender.SendWelcomeEmail(ctx, c.Email, c.Name); err != nil {
+		log.Println(err)
+		return err
+	}
+
+	log.Println("appending events")
+	return ra.AppendEvents(ctx, fairway.NewEvent(event.UserWelcomeEmailSent{UserId: c.UserId}))
 }
