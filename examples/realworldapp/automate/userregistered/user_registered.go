@@ -44,7 +44,7 @@ type sendWelcomeEmailCmd struct {
 	UserId, Email, Name string
 }
 
-func (c sendWelcomeEmailCmd) Run(ctx context.Context, ra fairway.EventReadAppender, deps Deps) error {
+func (c sendWelcomeEmailCmd) Run(ctx context.Context, ra fairway.EventReadAppenderExtended, deps Deps) error {
 	alreadySent := false
 
 	if err := ra.ReadEvents(ctx, fairway.QueryItems(
@@ -66,6 +66,5 @@ func (c sendWelcomeEmailCmd) Run(ctx context.Context, ra fairway.EventReadAppend
 		return err
 	}
 
-	log.Println("appending events")
-	return ra.AppendEvents(ctx, fairway.NewEvent(event.UserWelcomeEmailSent{UserId: c.UserId}))
+	return ra.AppendEventsNoCondition(ctx, fairway.NewEvent(event.UserWelcomeEmailSent{UserId: c.UserId}))
 }

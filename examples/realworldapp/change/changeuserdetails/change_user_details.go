@@ -155,5 +155,5 @@ func (cmd command) Run(ctx context.Context, ev fairway.EventReadAppender) error 
 		return nil
 	}
 
-	return ev.AppendEvents(ctx, events...)
+	return ev.AppendEvents(ctx, events[0], events[1:]...)
 }

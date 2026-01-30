@@ -362,7 +362,7 @@ func TestRunWithEffect_PassesDependencies(t *testing.T) {
 	}
 
 	impl := func(cmd *EffectCommand) fairway.CommandWithEffect[Deps] {
-		return commandWithEffectFunc[Deps](func(ctx context.Context, ra fairway.EventReadAppender, deps Deps) error {
+		return commandWithEffectFunc[Deps](func(ctx context.Context, ra fairway.EventReadAppenderExtended, deps Deps) error {
 			cmd.ReceivedDeps = &deps
 			return ra.AppendEvents(ctx, fairway.NewEvent(TestEventA{Value: deps.Value}))
 		})
@@ -415,7 +415,7 @@ func TestDifferentDependencyTypes(t *testing.T) {
 	store1 := &mockStore{}
 	loggerRunner := fairway.NewCommandWithEffectRunner(store1, LoggerDeps{Name: "logger"})
 
-	loggerCmd := commandWithEffectFunc[LoggerDeps](func(ctx context.Context, ra fairway.EventReadAppender, deps LoggerDeps) error {
+	loggerCmd := commandWithEffectFunc[LoggerDeps](func(ctx context.Context, ra fairway.EventReadAppenderExtended, deps LoggerDeps) error {
 		assert.Equal(t, "logger", deps.Name)
 		return nil
 	})
@@ -427,7 +427,7 @@ func TestDifferentDependencyTypes(t *testing.T) {
 	store2 := &mockStore{}
 	dbRunner := fairway.NewCommandWithEffectRunner(store2, DatabaseDeps{ConnString: "db://host"})
 
-	dbCmd := commandWithEffectFunc[DatabaseDeps](func(ctx context.Context, ra fairway.EventReadAppender, deps DatabaseDeps) error {
+	dbCmd := commandWithEffectFunc[DatabaseDeps](func(ctx context.Context, ra fairway.EventReadAppenderExtended, deps DatabaseDeps) error {
 		assert.Equal(t, "db://host", deps.ConnString)
 		return nil
 	})
@@ -578,21 +578,6 @@ func TestMultipleQueryItems_OR(t *testing.T) {
 
 	query := store.ReadCalls[0].Query
 	assert.Len(t, query.Items, 2, "expected 2 query items (OR)")
-}
-
-func TestEmptyAppend_Ignored(t *testing.T) {
-	store := &mockStore{}
-	runner := fairway.NewCommandRunner(store)
-
-	impl := commandFunc(func(ctx context.Context, ra fairway.EventReadAppender) error {
-		return ra.AppendEvents(ctx) // Empty append
-	})
-
-	err := runner.RunPure(context.Background(), impl)
-	require.NoError(t, err)
-
-	// No append call should be recorded
-	assert.Len(t, store.AppendCalls, 0)
 }
 
 func TestReadEvents_NilHandler(t *testing.T) {
@@ -840,7 +825,7 @@ func (cmd *testCommand) Run(ctx context.Context, ra fairway.EventReadAppender) e
 		}
 	}
 
-	err := ra.AppendEvents(ctx, events...)
+	err := ra.AppendEvents(ctx, events[0], events[1:]...)
 
 	if cmd.OnAfterAppend != nil {
 		cmd.OnAfterAppend(err)
@@ -890,9 +875,9 @@ func (f commandFunc) Run(ctx context.Context, ra fairway.EventReadAppender) erro
 }
 
 // Helper: CommandWithEffect from function
-type commandWithEffectFunc[Deps any] func(context.Context, fairway.EventReadAppender, Deps) error
+type commandWithEffectFunc[Deps any] func(context.Context, fairway.EventReadAppenderExtended, Deps) error
 
-func (f commandWithEffectFunc[Deps]) Run(ctx context.Context, ra fairway.EventReadAppender, deps Deps) error {
+func (f commandWithEffectFunc[Deps]) Run(ctx context.Context, ra fairway.EventReadAppenderExtended, deps Deps) error {
 	return f(ctx, ra, deps)
 }
 

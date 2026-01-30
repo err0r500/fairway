@@ -85,7 +85,7 @@ func (cr *commandRunner) RunPure(ctx context.Context, cmd Command) error {
 // CommandWithEffect represents a command that can perform side effects
 // using injected dependencies, while also interacting with the event store
 type CommandWithEffect[Deps any] interface {
-	Run(ctx context.Context, ra EventReadAppender, deps Deps) error
+	Run(ctx context.Context, ra EventReadAppenderExtended, deps Deps) error
 }
 
 // CommandWithEffectRunner runs commands with side effects and dependency injection.
@@ -155,13 +155,18 @@ func (cr *commandWithEffectRunner[Deps]) RunWithEffect(ctx context.Context, cmd 
 	}
 
 	return retry.Do(func() error {
-		return cmd.Run(ctx, newReadAppender(cr.store), cr.deps)
+		return cmd.Run(ctx, newReadAppenderExtended(cr.store), cr.deps)
 	}, opts...)
 }
 
 type EventReadAppender interface {
 	EventsReader
-	AppendEvents(ctx context.Context, events ...Event) error
+	AppendEvents(ctx context.Context, event Event, remainingEvents ...Event) error
+}
+
+type EventReadAppenderExtended interface {
+	EventReadAppender
+	AppendEventsNoCondition(ctx context.Context, event Event, remainingEvents ...Event) error
 }
 
 // commandReadAppender provides read-then-conditional-append for commands
@@ -176,6 +181,13 @@ type commandReadAppender struct {
 // it tracks the last versionstamp consumed by the command
 // and injects it directly when using append
 func newReadAppender(store dcb.DcbStore) EventReadAppender {
+	return newReadAppenderExtended(store)
+}
+
+// newReadAppender creates a ReadAppender with given store
+// it tracks the last versionstamp consumed by the command
+// and injects it directly when using append
+func newReadAppenderExtended(store dcb.DcbStore) EventReadAppenderExtended {
 	return &commandReadAppender{
 		store:         store,
 		eventRegistry: newEventRegistry(),
@@ -223,20 +235,22 @@ func (ra *commandReadAppender) ReadEvents(ctx context.Context, query Query, hand
 	return nil
 }
 
-// AppendEvents appends events with conditional check using tracked versionstamp
-func (ra *commandReadAppender) AppendEvents(ctx context.Context, events ...Event) error {
-	if len(events) == 0 {
-		return nil
+// AppendEventsNoCondition appends events without any condition (even if there was a Read previously)
+func (ra *commandReadAppender) AppendEventsNoCondition(ctx context.Context, event Event, remainingEvents ...Event) error {
+	dcbEvents, err := serializeEvents(append([]Event{event}, remainingEvents...))
+	if err != nil {
+		return err
 	}
 
+	return ra.store.Append(ctx, dcbEvents, nil)
+}
+
+// AppendEvents appends events with conditional check using tracked versionstamp
+func (ra *commandReadAppender) AppendEvents(ctx context.Context, event Event, remainingEvents ...Event) error {
 	// Serialize Event → dcb.Event
-	dcbEvents := make([]dcb.Event, len(events))
-	for i, ev := range events {
-		dcbEvent, err := ToDcbEvent(ev)
-		if err != nil {
-			return err
-		}
-		dcbEvents[i] = dcbEvent
+	dcbEvents, err := serializeEvents(append([]Event{event}, remainingEvents...))
+	if err != nil {
+		return err
 	}
 
 	// Build condition using query if used
@@ -251,3 +265,17 @@ func (ra *commandReadAppender) AppendEvents(ctx context.Context, events ...Event
 			After: ra.lastSeenVersionstamp,
 		})
 }
+
+func serializeEvents(events []Event) ([]dcb.Event, error) {
+	dcbEvents := make([]dcb.Event, len(events))
+	for i, ev := range events {
+		dcbEvent, err := ToDcbEvent(ev)
+		if err != nil {
+			return nil, err
+		}
+		dcbEvents[i] = dcbEvent
+	}
+
+	return dcbEvents, nil
+}
+

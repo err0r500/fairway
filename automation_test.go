@@ -43,7 +43,7 @@ type TestCommand struct {
 	Deps  *TestDeps
 }
 
-func (c *TestCommand) Run(ctx context.Context, ra fairway.EventReadAppender, deps TestDeps) error {
+func (c *TestCommand) Run(ctx context.Context, ra fairway.EventReadAppenderExtended, deps TestDeps) error {
 	deps.HandlerCalled.Add(1)
 	*deps.LastEvent = c.Event
 
