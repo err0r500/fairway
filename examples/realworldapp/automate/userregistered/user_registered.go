@@ -19,6 +19,10 @@ type Deps struct {
 	EmailSender automate.EmailSender
 }
 
+type command struct {
+	UserId, Email, Name string
+}
+
 // Register adds this automation to the registry (public for tests)
 func Register(registry *automate.AutomationRegistry) {
 	registry.RegisterAutomation(
@@ -34,17 +38,12 @@ func Register(registry *automate.AutomationRegistry) {
 	)
 }
 
-
 func eventToCommand(ev fairway.Event) fairway.CommandWithEffect[Deps] {
 	data := ev.Data.(event.UserRegistered)
-	return sendWelcomeEmailCmd{UserId: data.Id, Email: data.Email, Name: data.Name}
+	return command{UserId: data.Id, Email: data.Email, Name: data.Name}
 }
 
-type sendWelcomeEmailCmd struct {
-	UserId, Email, Name string
-}
-
-func (c sendWelcomeEmailCmd) Run(ctx context.Context, ra fairway.EventReadAppenderExtended, deps Deps) error {
+func (c command) Run(ctx context.Context, ra fairway.EventReadAppenderExtended, deps Deps) error {
 	alreadySent := false
 
 	if err := ra.ReadEvents(ctx, fairway.QueryItems(
