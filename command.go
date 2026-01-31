@@ -278,4 +278,3 @@ func serializeEvents(events []Event) ([]dcb.Event, error) {
 
 	return dcbEvents, nil
 }
-

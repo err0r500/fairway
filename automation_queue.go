@@ -24,7 +24,7 @@ type Job struct {
 }
 
 var (
-	ErrNoJobs     = errors.New("no jobs available")
+	ErrNoJobs      = errors.New("no jobs available")
 	ErrLeaseStolen = errors.New("lease was stolen by another worker")
 )
 

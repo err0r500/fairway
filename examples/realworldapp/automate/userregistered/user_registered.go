@@ -28,11 +28,11 @@ func Register(registry *automate.AutomationRegistry) {
 	registry.RegisterAutomation(
 		func(store dcb.DcbStore, deps automate.AllDeps) (automate.Startable, error) {
 			return fairway.NewAutomation(
-				store,                                  // DCB store
+				store,                               // DCB store
 				Deps{EmailSender: deps.EmailSender}, // provide the dependencies implementations to the command
-				"welcome-email",                        // unique queue identifier
-				event.UserRegistered{},                 // the event-type that triggers the automation
-				eventToCommand,                         // mapping to construct the command from the trigger event
+				"welcome-email",                     // unique queue identifier
+				event.UserRegistered{},              // the event-type that triggers the automation
+				eventToCommand,                      // mapping to construct the command from the trigger event
 			)
 		},
 	)

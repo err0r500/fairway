@@ -269,7 +269,7 @@ func TestAutomation_DLQAfterMaxAttempts(t *testing.T) {
 
 	automation, store := setupTestAutomation(t, dcbNs, queueId, deps,
 		fairway.WithPollInterval[TestDeps](10*time.Millisecond),
-		fairway.WithMaxAttempts[TestDeps](2),                      // Low for faster test
+		fairway.WithMaxAttempts[TestDeps](2),                     // Low for faster test
 		fairway.WithRetryBaseWait[TestDeps](10*time.Millisecond), // Short backoff for testing
 	)
 
