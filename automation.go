@@ -39,6 +39,55 @@ func defaultConfig() AutomationConfig {
 	}
 }
 
+// Startable interface for automations
+type Startable interface {
+	QueueId() string
+	Start(ctx context.Context) error
+	Stop()
+	Wait() error
+}
+
+// AutomationFactory creates an automation
+type AutomationFactory[Deps any] func(store dcb.DcbStore, deps Deps) (Startable, error)
+
+// AutomationRegistry holds registered automation factories
+type AutomationRegistry[Deps any] struct {
+	factories []AutomationFactory[Deps]
+}
+
+func (r *AutomationRegistry[Deps]) RegisterAutomation(f AutomationFactory[Deps]) {
+	r.factories = append(r.factories, f)
+}
+
+// StartAll creates and starts all automations, returns stop func
+func (r *AutomationRegistry[Deps]) StartAll(ctx context.Context, store dcb.DcbStore, deps Deps) (func(), error) {
+	var automations []Startable
+	seen := make(map[string]bool)
+	for _, f := range r.factories {
+		a, err := f(store, deps)
+		if err != nil {
+			return nil, err
+		}
+		qid := a.QueueId()
+		if seen[qid] {
+			return nil, fmt.Errorf("duplicate automation queueId: %q", qid)
+		}
+		seen[qid] = true
+		if err := a.Start(ctx); err != nil {
+			return nil, err
+		}
+		automations = append(automations, a)
+	}
+	return func() {
+		for _, a := range automations {
+			a.Stop()
+		}
+		for _, a := range automations {
+			a.Wait()
+		}
+	}, nil
+}
+
 // Automation watches for events and executes handlers
 type Automation[Deps any] struct {
 	// Config

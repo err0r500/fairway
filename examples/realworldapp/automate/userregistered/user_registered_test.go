@@ -45,7 +45,7 @@ func TestUserRegistered_SendsWelcomeEmail(t *testing.T) {
 
 	store := given.SetupTestStore(t)
 	emailSender := &InMemoryEmailSender{}
-	registry := &automate.AutomationRegistry{}
+	registry := &fairway.AutomationRegistry[automate.AllDeps]{}
 	userregistered.Register(registry)
 	stopFn, err := registry.StartAll(t.Context(), store, automate.AllDeps{EmailSender: emailSender})
 	require.NoError(t, err)

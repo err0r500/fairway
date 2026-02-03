@@ -1,7 +1,7 @@
 package event
 
 type UserWelcomeEmailSent struct {
-	UserId string  `json:"userId"`
+	UserId string `json:"userId"`
 }
 
 func (e UserWelcomeEmailSent) Tags() []string {

@@ -24,9 +24,9 @@ type command struct {
 }
 
 // Register adds this automation to the registry (public for tests)
-func Register(registry *automate.AutomationRegistry) {
+func Register(registry *fairway.AutomationRegistry[automate.AllDeps]) {
 	registry.RegisterAutomation(
-		func(store dcb.DcbStore, deps automate.AllDeps) (automate.Startable, error) {
+		func(store dcb.DcbStore, deps automate.AllDeps) (fairway.Startable, error) {
 			return fairway.NewAutomation(
 				store,                               // DCB store
 				Deps{EmailSender: deps.EmailSender}, // provide the dependencies implementations to the command
