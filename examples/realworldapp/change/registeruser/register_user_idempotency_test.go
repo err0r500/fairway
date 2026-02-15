@@ -1,9 +1,12 @@
 package registeruser_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
+	"sync"
 	"testing"
 
 	"github.com/err0r500/fairway"
@@ -117,6 +120,69 @@ func TestRegisterUser_Idempotent_ConflictIsCached(t *testing.T) {
 	assert.Equal(t, http.StatusConflict, resp2.StatusCode(), "retry with same key should return cached 409")
 }
 
+func TestRegisterUser_Idempotent_ParallelRequestsSameKey(t *testing.T) {
+	t.Parallel()
+	store, server, _ := given.FreshSetupWithIdempotency(t, registeruser.Register)
+
+	body := map[string]any{
+		"id":       "user-parallel-1",
+		"username": "parallel_user",
+		"email":    "parallel@example.com",
+		"password": "secret123",
+	}
+
+	const n = 5
+	var wg sync.WaitGroup
+	wg.Add(n)
+
+	type result struct {
+		statusCode int
+		err        error
+	}
+	results := make([]result, n)
+
+	for i := range n {
+		go func(idx int) {
+			defer wg.Done()
+			req, err := http.NewRequest("POST", server.URL+"/users", mustMarshalReader(body))
+			if err != nil {
+				results[idx] = result{err: err}
+				return
+			}
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Idempotency-Key", "parallel-key-1")
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				results[idx] = result{err: err}
+				return
+			}
+			resp.Body.Close()
+			results[idx] = result{statusCode: resp.StatusCode}
+		}(i)
+	}
+	wg.Wait()
+
+	// All requests should have completed without error
+	for i, r := range results {
+		require.NoError(t, r.err, "request %d failed", i)
+	}
+
+	// All responses should have the same status code
+	firstStatus := results[0].statusCode
+	for i, r := range results[1:] {
+		assert.Equal(t, firstStatus, r.statusCode,
+			"request %d returned %d, expected %d (same as first)", i+1, r.statusCode, firstStatus)
+	}
+
+	// Exactly one event should be in the store (as if a single request succeeded)
+	eventCount := 0
+	for _, readErr := range store.ReadAll(context.Background()) {
+		assert.NoError(t, readErr)
+		eventCount++
+	}
+	assert.Equal(t, 1, eventCount, "should have exactly one event in store, not %d", eventCount)
+}
+
 func TestRegisterUser_Idempotent_WithoutKeyStillWorks(t *testing.T) {
 	t.Parallel()
 	store, server, httpClient := given.FreshSetupWithIdempotency(t, registeruser.Register)
@@ -144,4 +210,12 @@ func TestRegisterUser_Idempotent_WithoutKeyStillWorks(t *testing.T) {
 		assert.NoError(t, json.Unmarshal(envelope.Data, &stored))
 	}
 	assert.Equal(t, "user-no-key", stored.Id)
+}
+
+func mustMarshalReader(v any) io.Reader {
+	b, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	return bytes.NewReader(b)
 }
