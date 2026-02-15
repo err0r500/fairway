@@ -1,4 +1,4 @@
-package fairway_test
+package utils_test
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
-	"github.com/err0r500/fairway"
+	"github.com/err0r500/fairway/utils"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
@@ -39,7 +39,7 @@ func TestIdempotencyMiddleware_ConcurrentSameKey(t *testing.T) {
 		_, _ = w.Write([]byte(`{"ok":true}`))
 	})
 
-	handler := fairway.IdempotencyMiddleware(db, namespace, inner)
+	handler := utils.IdempotencyMiddleware(db, namespace, inner)
 	server := httptest.NewServer(handler)
 	t.Cleanup(server.Close)
 
