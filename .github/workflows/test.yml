@@ -57,6 +57,8 @@ jobs:
       # Example modules (separate go.mod with replace directives)
       - name: Test realworldapp example
         working-directory: examples/realworldapp
+        env:
+          JWT_SECRET: test-secret
         run: go test -tags test -race -timeout 60s ./...
 
       - name: Test todolist example
