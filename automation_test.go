@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -33,6 +34,7 @@ func (e TestAutomationEvent) Tags() []string {
 type TestDeps struct {
 	HandlerCalled *atomic.Int32
 	LastEvent     *fairway.Event
+	LastEventMu   *sync.Mutex
 	ShouldFail    bool
 	FailCount     *atomic.Int32
 }
@@ -45,7 +47,13 @@ type TestCommand struct {
 
 func (c *TestCommand) Run(ctx context.Context, ra fairway.EventReadAppenderExtended, deps TestDeps) error {
 	deps.HandlerCalled.Add(1)
+	if deps.LastEventMu != nil {
+		deps.LastEventMu.Lock()
+	}
 	*deps.LastEvent = c.Event
+	if deps.LastEventMu != nil {
+		deps.LastEventMu.Unlock()
+	}
 
 	if deps.ShouldFail {
 		if deps.FailCount != nil {
@@ -93,10 +101,12 @@ func TestAutomation_BasicEventProcessing(t *testing.T) {
 
 	handlerCalled := &atomic.Int32{}
 	var lastEvent fairway.Event
+	var lastEventMu sync.Mutex
 
 	deps := TestDeps{
 		HandlerCalled: handlerCalled,
 		LastEvent:     &lastEvent,
+		LastEventMu:   &lastEventMu,
 	}
 
 	automation, store := setupTestAutomation(t, dcbNs, queueId, deps,
@@ -125,8 +135,11 @@ func TestAutomation_BasicEventProcessing(t *testing.T) {
 	}, 2*time.Second, 10*time.Millisecond, "handler should be called")
 
 	// Verify event data
-	if lastEvent.Data != nil {
-		eventData, ok := lastEvent.Data.(TestAutomationEvent)
+	lastEventMu.Lock()
+	eventCopy := lastEvent
+	lastEventMu.Unlock()
+	if eventCopy.Data != nil {
+		eventData, ok := eventCopy.Data.(TestAutomationEvent)
 		if ok {
 			assert.Equal(t, userId, eventData.UserID)
 		}
