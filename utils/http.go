@@ -9,6 +9,7 @@ import (
 
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"github.com/apple/foundationdb/bindings/go/src/fdb/subspace"
+	"github.com/apple/foundationdb/bindings/go/src/fdb/tuple"
 	"github.com/go-playground/validator/v10"
 )
 
@@ -48,7 +49,7 @@ func IdempotencyMiddleware(db fdb.Database, namespace string, next http.Handler)
 			return
 		}
 
-		fdbKey := ss.Pack([]byte(key))
+		fdbKey := ss.Pack(tuple.Tuple{key})
 
 		// Try to claim the key atomically.
 		claimed, existingValue, err := tryClaim(db, fdbKey)
