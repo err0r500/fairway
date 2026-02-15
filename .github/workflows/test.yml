@@ -28,16 +28,25 @@ jobs:
           sudo dpkg -i foundationdb-clients_${FDB_VERSION}-1_amd64.deb
           sudo dpkg -i foundationdb-server_${FDB_VERSION}-1_amd64.deb
 
-      - name: Wait for FDB to be ready
+      - name: Configure and start FDB
         run: |
+          # Ensure the fdbserver process is running
+          sudo service foundationdb restart || true
+          sleep 2
+
+          # Configure a new single-node database if not already done
+          fdbcli --exec "configure new single ssd" || true
+
+          # Wait for the cluster to become healthy
           for i in $(seq 1 30); do
             if fdbcli --exec "status" 2>/dev/null | grep -q "Healthy"; then
               echo "FDB is ready"
               exit 0
             fi
-            sleep 1
+            echo "Waiting for FDB... ($i/30)"
+            sleep 2
           done
-          echo "FDB failed to start"
+          echo "FDB failed to become healthy"
           fdbcli --exec "status" || true
           exit 1
 
