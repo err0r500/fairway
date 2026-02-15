@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"slices"
+	"time"
 
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"github.com/err0r500/fairway"
@@ -38,6 +39,10 @@ func main() {
 		log.Fatal(err)
 	}
 	defer stopAutomations()
+
+	// Setup idempotency for change requests
+	idempotencyStore := dcb.NewIdempotencyStore(db, "realworldapp", 24*time.Hour)
+	change.ChangeRegistry.WithIdempotency(idempotencyStore)
 
 	// Setup router
 	mux := http.NewServeMux()

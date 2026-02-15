@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"github.com/err0r500/fairway"
@@ -69,6 +70,50 @@ func FreshSetup(t *testing.T, registerFn any) (dcb.DcbStore, *httptest.Server, *
 		viewRegistry.RegisterRoutes(mux, reader)
 	default:
 		panic("registerFn must accept *fairway.HttpChangeRegistry or *fairway.HttpViewRegistry")
+	}
+
+	server := httptest.NewServer(mux)
+	httpClient := resty.New()
+	t.Cleanup(func() {
+		server.Close()
+		httpClient.Close()
+	})
+	return store, server, httpClient
+}
+
+// FreshSetupWithIdempotency is like FreshSetup but configures the change registry
+// with an FDB-backed idempotency store (24h TTL).
+func FreshSetupWithIdempotency(t *testing.T, registerFn any) (dcb.DcbStore, *httptest.Server, *resty.Client) {
+	store := SetupTestStore(t)
+	runner := fairway.NewCommandRunner(store)
+	mux := http.NewServeMux()
+
+	idempotencyStore := dcb.NewIdempotencyStore(store.Database(), store.Namespace(), 24*time.Hour)
+
+	fnType := reflect.TypeOf(registerFn)
+	if fnType == nil || fnType.Kind() != reflect.Func {
+		panic("registerFn must be a function")
+	}
+	if fnType.NumIn() != 1 {
+		panic("registerFn must accept exactly 1 parameter")
+	}
+
+	paramType := fnType.In(0)
+	if paramType.Kind() != reflect.Ptr {
+		panic("registerFn parameter must be a pointer")
+	}
+
+	elemType := paramType.Elem()
+	fnValue := reflect.ValueOf(registerFn)
+
+	switch elemType.Name() {
+	case "HttpChangeRegistry":
+		changeRegistry := &fairway.HttpChangeRegistry{}
+		fnValue.Call([]reflect.Value{reflect.ValueOf(changeRegistry)})
+		changeRegistry.WithIdempotency(idempotencyStore)
+		changeRegistry.RegisterRoutes(mux, runner)
+	default:
+		panic("FreshSetupWithIdempotency only supports *fairway.HttpChangeRegistry")
 	}
 
 	server := httptest.NewServer(mux)

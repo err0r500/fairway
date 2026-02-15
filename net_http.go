@@ -2,11 +2,15 @@ package fairway
 
 import (
 	"net/http"
+
+	"github.com/err0r500/fairway/dcb"
 )
 
 type HttpChangeRegistry struct {
 	// registeredCommands stores all registered command routes
 	registeredCommands []changeRegistration
+	// idempotencyStore, if set, enables idempotent change request handling
+	idempotencyStore dcb.IdempotencyStore
 }
 
 // changeRegistration represents a command route registration
@@ -23,10 +27,22 @@ func (registry *HttpChangeRegistry) RegisterCommand(pattern string, handler func
 	})
 }
 
+// WithIdempotency configures the registry to use an idempotency store.
+// When set, requests with an Idempotency-Key header will be deduplicated:
+// the first request is processed normally and its status code is cached;
+// subsequent requests with the same key return the cached status code.
+func (registry *HttpChangeRegistry) WithIdempotency(store dcb.IdempotencyStore) {
+	registry.idempotencyStore = store
+}
+
 // RegisterRoutes registers all command routes to the mux
 func (registry HttpChangeRegistry) RegisterRoutes(mux *http.ServeMux, runner CommandRunner) {
 	for _, reg := range registry.registeredCommands {
-		mux.HandleFunc(reg.Pattern, reg.Handler(runner))
+		handler := reg.Handler(runner)
+		if registry.idempotencyStore != nil {
+			handler = idempotencyMiddleware(registry.idempotencyStore, handler)
+		}
+		mux.HandleFunc(reg.Pattern, handler)
 	}
 }
 
