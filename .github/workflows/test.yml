@@ -1,0 +1,55 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    env:
+      FDB_VERSION: "7.4.5"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      # Install FoundationDB client + server
+      - name: Install FoundationDB
+        run: |
+          wget -q "https://github.com/apple/foundationdb/releases/download/${FDB_VERSION}/foundationdb-clients_${FDB_VERSION}-1_amd64.deb"
+          wget -q "https://github.com/apple/foundationdb/releases/download/${FDB_VERSION}/foundationdb-server_${FDB_VERSION}-1_amd64.deb"
+          sudo dpkg -i foundationdb-clients_${FDB_VERSION}-1_amd64.deb
+          sudo dpkg -i foundationdb-server_${FDB_VERSION}-1_amd64.deb
+
+      - name: Wait for FDB to be ready
+        run: |
+          for i in $(seq 1 30); do
+            if fdbcli --exec "status" 2>/dev/null | grep -q "Healthy"; then
+              echo "FDB is ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "FDB failed to start"
+          fdbcli --exec "status" || true
+          exit 1
+
+      # Root module
+      - name: Test root module
+        run: go test -race -timeout 60s ./...
+
+      # Example modules (separate go.mod with replace directives)
+      - name: Test realworldapp example
+        working-directory: examples/realworldapp
+        run: go test -race -timeout 60s ./...
+
+      - name: Test todolist example
+        working-directory: examples/todolist
+        run: go test -race -timeout 60s ./...
