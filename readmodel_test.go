@@ -2,7 +2,6 @@ package fairway_test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"sync/atomic"
 	"testing"
@@ -335,8 +334,7 @@ func TestReadModel_Get(t *testing.T) {
 	handler := func(stx fairway.ScopedTx, ev fairway.Event) error {
 		e := ev.Data.(TestReadModelEventA)
 		user := UserView{Name: e.Value, Email: e.Value + "@example.com"}
-		data, _ := json.Marshal(user)
-		stx.Set(tuple.Tuple{"user", e.Value}, data)
+		_ = stx.SetJSON(fairway.P("user", e.Value), user)
 		return nil
 	}
 
@@ -357,7 +355,7 @@ func TestReadModel_Get(t *testing.T) {
 	var results []*UserView
 	assert.Eventually(t, func() bool {
 		var err error
-		results, err = rm.Get(tuple.Tuple{"user", "alice"})
+		results, err = rm.Get(ctx, fairway.P("user", "alice"))
 		return err == nil && len(results) == 1 && results[0] != nil
 	}, 2*time.Second, 10*time.Millisecond, "should get user alice")
 
@@ -366,7 +364,7 @@ func TestReadModel_Get(t *testing.T) {
 	assert.Equal(t, "alice@example.com", results[0].Email)
 
 	// Missing key returns nil
-	results, err = rm.Get(tuple.Tuple{"user", "bob"})
+	results, err = rm.Get(ctx, fairway.P("user", "bob"))
 	require.NoError(t, err)
 	require.Len(t, results, 1)
 	assert.Nil(t, results[0])
