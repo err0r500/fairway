@@ -8,9 +8,10 @@ import (
 	"time"
 
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
-	"github.com/apple/foundationdb/bindings/go/src/fdb/tuple"
+	"github.com/apple/foundationdb/bindings/go/src/fdb/subspace"
 	"github.com/err0r500/fairway"
 	"github.com/err0r500/fairway/dcb"
+	"github.com/err0r500/fairway/utils"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,20 +25,45 @@ type TestReadModelEventB struct {
 	Count int
 }
 
+// TestRepo wraps utils.KV for test handlers
+type TestRepo struct {
+	kv     utils.KV
+	called *atomic.Int32
+}
+
+func (r TestRepo) RecordCall() {
+	if r.called != nil {
+		r.called.Add(1)
+	}
+}
+
+func (r TestRepo) SetJSON(key fairway.Path, v any) error {
+	return r.kv.SetJSON(key, v)
+}
+
+func (r TestRepo) SetPath(key []string) {
+	r.kv.SetPath(key)
+}
+
 func setupTestReadModel[T any](
 	t *testing.T,
 	dcbNs string,
 	name string,
 	examples []any,
-	handler func(fairway.ScopedTx, fairway.Event) error,
-	opts ...fairway.ReadModelOption[T],
-) (*fairway.ReadModel[T], dcb.DcbStore) {
+	called *atomic.Int32,
+	handler func(TestRepo, fairway.Event) error,
+	opts ...fairway.ReadModelOption[T, TestRepo],
+) (*fairway.ReadModel[T, TestRepo], dcb.DcbStore) {
 	t.Helper()
 
 	db := fdb.MustOpenDefault()
 	store := dcb.NewDcbStore(db, dcbNs)
 
-	rm, err := fairway.NewReadModel[T](store, name, examples, handler, opts...)
+	repoFactory := func(tr fdb.Transaction, space subspace.Subspace) TestRepo {
+		return TestRepo{kv: utils.NewKV(tr, space), called: called}
+	}
+
+	rm, err := fairway.NewReadModel[T, TestRepo](store, name, examples, repoFactory, handler, opts...)
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
@@ -55,15 +81,16 @@ func TestReadModel_BasicEventProcessing(t *testing.T) {
 	dcbNs := fmt.Sprintf("test-rm-%s", uuid.NewString())
 
 	var called atomic.Int32
-	handler := func(_ fairway.ScopedTx, ev fairway.Event) error {
-		called.Add(1)
+	handler := func(repo TestRepo, ev fairway.Event) error {
+		repo.RecordCall()
 		return nil
 	}
 
 	rm, store := setupTestReadModel[any](t, dcbNs, "test-rm",
 		[]any{TestReadModelEventA{}},
+		&called,
 		handler,
-		fairway.WithReadModelPollInterval[any](10*time.Millisecond),
+		fairway.WithReadModelPollInterval[any, TestRepo](10*time.Millisecond),
 	)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -84,7 +111,7 @@ func TestReadModel_MultipleEventTypes(t *testing.T) {
 	dcbNs := fmt.Sprintf("test-rm-%s", uuid.NewString())
 
 	var calledA, calledB atomic.Int32
-	handler := func(_ fairway.ScopedTx, ev fairway.Event) error {
+	handler := func(repo TestRepo, ev fairway.Event) error {
 		switch ev.Data.(type) {
 		case TestReadModelEventA:
 			calledA.Add(1)
@@ -96,8 +123,9 @@ func TestReadModel_MultipleEventTypes(t *testing.T) {
 
 	rm, store := setupTestReadModel[any](t, dcbNs, "test-rm",
 		[]any{TestReadModelEventA{}, TestReadModelEventB{}},
+		nil,
 		handler,
-		fairway.WithReadModelPollInterval[any](10*time.Millisecond),
+		fairway.WithReadModelPollInterval[any, TestRepo](10*time.Millisecond),
 	)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -131,9 +159,12 @@ func TestReadModel_CursorPersistence(t *testing.T) {
 	ctx := context.Background()
 
 	var called atomic.Int32
-	handler := func(_ fairway.ScopedTx, ev fairway.Event) error {
-		called.Add(1)
+	handler := func(repo TestRepo, ev fairway.Event) error {
+		repo.RecordCall()
 		return nil
+	}
+	repoFactory := func(tr fdb.Transaction, space subspace.Subspace) TestRepo {
+		return TestRepo{kv: utils.NewKV(tr, space), called: &called}
 	}
 
 	// Append first event
@@ -141,8 +172,8 @@ func TestReadModel_CursorPersistence(t *testing.T) {
 	require.NoError(t, store.Append(ctx, []dcb.Event{ev1}, nil))
 
 	// Start first read model instance, process first event, then stop
-	rm1, err := fairway.NewReadModel[any](store, "my-projection", []any{TestReadModelEventA{}}, handler,
-		fairway.WithReadModelPollInterval[any](10*time.Millisecond),
+	rm1, err := fairway.NewReadModel[any, TestRepo](store, "my-projection", []any{TestReadModelEventA{}}, repoFactory, handler,
+		fairway.WithReadModelPollInterval[any, TestRepo](10*time.Millisecond),
 	)
 	require.NoError(t, err)
 
@@ -164,8 +195,8 @@ func TestReadModel_CursorPersistence(t *testing.T) {
 	countBefore := called.Load()
 
 	// Start second instance — should resume from cursor, only process new event
-	rm2, err := fairway.NewReadModel[any](store, "my-projection", []any{TestReadModelEventA{}}, handler,
-		fairway.WithReadModelPollInterval[any](10*time.Millisecond),
+	rm2, err := fairway.NewReadModel[any, TestRepo](store, "my-projection", []any{TestReadModelEventA{}}, repoFactory, handler,
+		fairway.WithReadModelPollInterval[any, TestRepo](10*time.Millisecond),
 	)
 	require.NoError(t, err)
 
@@ -186,15 +217,16 @@ func TestReadModel_MultipleEvents(t *testing.T) {
 	dcbNs := fmt.Sprintf("test-rm-%s", uuid.NewString())
 
 	var called atomic.Int32
-	handler := func(_ fairway.ScopedTx, ev fairway.Event) error {
-		called.Add(1)
+	handler := func(repo TestRepo, ev fairway.Event) error {
+		repo.RecordCall()
 		return nil
 	}
 
 	rm, store := setupTestReadModel[any](t, dcbNs, "test-rm",
 		[]any{TestReadModelEventA{}},
+		&called,
 		handler,
-		fairway.WithReadModelPollInterval[any](10*time.Millisecond),
+		fairway.WithReadModelPollInterval[any, TestRepo](10*time.Millisecond),
 	)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -216,21 +248,24 @@ func TestReadModel_MultipleEvents(t *testing.T) {
 func TestNewReadModel_ValidationErrors(t *testing.T) {
 	db := fdb.MustOpenDefault()
 	store := dcb.NewDcbStore(db, "test-ns")
-	handler := func(fairway.ScopedTx, fairway.Event) error { return nil }
+	handler := func(TestRepo, fairway.Event) error { return nil }
+	repoFactory := func(tr fdb.Transaction, space subspace.Subspace) TestRepo {
+		return TestRepo{}
+	}
 
-	_, err := fairway.NewReadModel[any](nil, "name", []any{TestReadModelEventA{}}, handler)
+	_, err := fairway.NewReadModel[any, TestRepo](nil, "name", []any{TestReadModelEventA{}}, repoFactory, handler)
 	require.Error(t, err)
 
-	_, err = fairway.NewReadModel[any](store, "", []any{TestReadModelEventA{}}, handler)
+	_, err = fairway.NewReadModel[any, TestRepo](store, "", []any{TestReadModelEventA{}}, repoFactory, handler)
 	require.Error(t, err)
 
-	_, err = fairway.NewReadModel[any](store, "name", []any{TestReadModelEventA{}}, nil)
+	_, err = fairway.NewReadModel[any, TestRepo](store, "name", []any{TestReadModelEventA{}}, repoFactory, nil)
 	require.Error(t, err)
 
-	_, err = fairway.NewReadModel[any](store, "name", nil, handler)
+	_, err = fairway.NewReadModel[any, TestRepo](store, "name", nil, repoFactory, handler)
 	require.Error(t, err)
 
-	_, err = fairway.NewReadModel[any](store, "name", []any{}, handler)
+	_, err = fairway.NewReadModel[any, TestRepo](store, "name", []any{}, repoFactory, handler)
 	require.Error(t, err)
 }
 
@@ -248,13 +283,16 @@ func TestReadModel_ScopedTxPrefixesKeys(t *testing.T) {
 	})
 
 	var storedKey []byte
-	handler := func(stx fairway.ScopedTx, ev fairway.Event) error {
-		stx.Set(tuple.Tuple{"mykey", "sub"}, []byte("value"))
+	handler := func(repo TestRepo, ev fairway.Event) error {
+		repo.SetPath([]string{"mykey", "sub"})
 		return nil
 	}
+	repoFactory := func(tr fdb.Transaction, space subspace.Subspace) TestRepo {
+		return TestRepo{kv: utils.NewKV(tr, space)}
+	}
 
-	rm, err := fairway.NewReadModel[any](store, "test-projection", []any{TestReadModelEventA{}}, handler,
-		fairway.WithReadModelPollInterval[any](10*time.Millisecond),
+	rm, err := fairway.NewReadModel[any, TestRepo](store, "test-projection", []any{TestReadModelEventA{}}, repoFactory, handler,
+		fairway.WithReadModelPollInterval[any, TestRepo](10*time.Millisecond),
 	)
 	require.NoError(t, err)
 
@@ -318,6 +356,14 @@ type UserView struct {
 	Email string `json:"email"`
 }
 
+type UserRepo struct {
+	kv utils.KV
+}
+
+func (r UserRepo) SetJSON(key fairway.Path, v any) error {
+	return r.kv.SetJSON(key, v)
+}
+
 func TestReadModel_Get(t *testing.T) {
 	dcbNs := fmt.Sprintf("test-rm-%s", uuid.NewString())
 
@@ -331,15 +377,18 @@ func TestReadModel_Get(t *testing.T) {
 		})
 	})
 
-	handler := func(stx fairway.ScopedTx, ev fairway.Event) error {
+	handler := func(repo UserRepo, ev fairway.Event) error {
 		e := ev.Data.(TestReadModelEventA)
 		user := UserView{Name: e.Value, Email: e.Value + "@example.com"}
-		_ = stx.SetJSON(fairway.P("user", e.Value), user)
+		_ = repo.SetJSON(fairway.P("user", e.Value), user)
 		return nil
 	}
+	repoFactory := func(tr fdb.Transaction, space subspace.Subspace) UserRepo {
+		return UserRepo{kv: utils.NewKV(tr, space)}
+	}
 
-	rm, err := fairway.NewReadModel[UserView](store, "user-view", []any{TestReadModelEventA{}}, handler,
-		fairway.WithReadModelPollInterval[UserView](10*time.Millisecond),
+	rm, err := fairway.NewReadModel[UserView, UserRepo](store, "user-view", []any{TestReadModelEventA{}}, repoFactory, handler,
+		fairway.WithReadModelPollInterval[UserView, UserRepo](10*time.Millisecond),
 	)
 	require.NoError(t, err)
 
