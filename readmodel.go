@@ -3,6 +3,7 @@ package fairway
 import (
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -15,6 +16,35 @@ import (
 	"github.com/apple/foundationdb/bindings/go/src/fdb/tuple"
 	"github.com/err0r500/fairway/dcb"
 )
+
+// ScopedTx wraps fdb.Transaction, auto-prefixing keys to ReadModel's subspace
+type ScopedTx struct {
+	tr    fdb.Transaction
+	space subspace.Subspace
+}
+
+func (s ScopedTx) Set(key tuple.Tuple, value []byte) {
+	s.tr.Set(s.space.Pack(key), value)
+}
+
+func (s ScopedTx) Get(key tuple.Tuple) fdb.FutureByteSlice {
+	return s.tr.Get(s.space.Pack(key))
+}
+
+func (s ScopedTx) Clear(key tuple.Tuple) {
+	s.tr.Clear(s.space.Pack(key))
+}
+
+func (s ScopedTx) ClearRange(begin, end tuple.Tuple) {
+	s.tr.ClearRange(fdb.KeyRange{
+		Begin: s.space.Pack(begin),
+		End:   s.space.Pack(end),
+	})
+}
+
+func (s ScopedTx) GetRange(prefix tuple.Tuple, opts fdb.RangeOptions) fdb.RangeResult {
+	return s.tr.GetRange(s.space.Sub(prefix...), opts)
+}
 
 // ReadModelConfig configures read model behavior
 type ReadModelConfig struct {
@@ -31,17 +61,19 @@ func defaultReadModelConfig() ReadModelConfig {
 
 // ReadModel processes events in order to maintain a persistent projection.
 // It stores a cursor in FDB so it can resume from where it left off on restart.
-type ReadModel struct {
+// T is the type of values stored in the read model's data space.
+type ReadModel[T any] struct {
 	name          string
 	eventTypes    []string
 	eventRegistry eventRegistry
-	handler       func(Event) error
+	handler       func(ScopedTx, Event) error
 	config        ReadModelConfig
 
 	db          fdb.Database
 	typeIndexes []subspace.Subspace // namespace/t/<type> per event type
 	eventsSpace subspace.Subspace   // namespace/e
 	cursorKey   fdb.Key             // namespace/rm/<name>/cursor
+	dataSpace   subspace.Subspace   // namespace/rm/<name>/data
 
 	ctx        context.Context
 	cancel     context.CancelFunc
@@ -51,11 +83,11 @@ type ReadModel struct {
 }
 
 // ReadModelOption configures a ReadModel
-type ReadModelOption func(*ReadModel)
+type ReadModelOption[T any] func(*ReadModel[T])
 
 // WithReadModelBatchSize sets the batch size for event processing
-func WithReadModelBatchSize(n int) ReadModelOption {
-	return func(rm *ReadModel) {
+func WithReadModelBatchSize[T any](n int) ReadModelOption[T] {
+	return func(rm *ReadModel[T]) {
 		if n > 0 {
 			rm.config.BatchSize = n
 		}
@@ -63,8 +95,8 @@ func WithReadModelBatchSize(n int) ReadModelOption {
 }
 
 // WithReadModelPollInterval sets the polling interval
-func WithReadModelPollInterval(d time.Duration) ReadModelOption {
-	return func(rm *ReadModel) {
+func WithReadModelPollInterval[T any](d time.Duration) ReadModelOption[T] {
+	return func(rm *ReadModel[T]) {
 		if d > 0 {
 			rm.config.PollInterval = d
 		}
@@ -75,13 +107,13 @@ func WithReadModelPollInterval(d time.Duration) ReadModelOption {
 // name uniquely identifies this projection (used for cursor storage).
 // eventTypeExamples are zero-value instances of each event type to watch.
 // handler is called for each event in versionstamp order.
-func NewReadModel(
+func NewReadModel[T any](
 	store dcb.DcbStore,
 	name string,
 	eventTypeExamples []any,
-	handler func(Event) error,
-	opts ...ReadModelOption,
-) (*ReadModel, error) {
+	handler func(ScopedTx, Event) error,
+	opts ...ReadModelOption[T],
+) (*ReadModel[T], error) {
 	if store == nil {
 		return nil, errors.New("store is required")
 	}
@@ -109,9 +141,11 @@ func NewReadModel(
 		typeIndexes = append(typeIndexes, dcbRoot.Sub("t").Sub(typeName))
 	}
 
-	cursorKey := dcbRoot.Sub("rm").Sub(name).Pack(tuple.Tuple{"cursor"})
+	rmRoot := dcbRoot.Sub("rm").Sub(name)
+	cursorKey := rmRoot.Pack(tuple.Tuple{"cursor"})
+	dataSpace := rmRoot.Sub("data")
 
-	rm := &ReadModel{
+	rm := &ReadModel[T]{
 		name:          name,
 		eventTypes:    eventTypes,
 		eventRegistry: registry,
@@ -121,6 +155,7 @@ func NewReadModel(
 		typeIndexes:   typeIndexes,
 		eventsSpace:   dcbRoot.Sub("e"),
 		cursorKey:     cursorKey,
+		dataSpace:     dataSpace,
 		errCh:         make(chan error, 100),
 	}
 
@@ -132,7 +167,7 @@ func NewReadModel(
 }
 
 // Start begins read model processing
-func (rm *ReadModel) Start(ctx context.Context) error {
+func (rm *ReadModel[T]) Start(ctx context.Context) error {
 	rm.ctx, rm.cancel = context.WithCancel(ctx)
 	rm.pollTicker = time.NewTicker(rm.config.PollInterval)
 
@@ -143,7 +178,7 @@ func (rm *ReadModel) Start(ctx context.Context) error {
 }
 
 // Stop gracefully stops the read model
-func (rm *ReadModel) Stop() {
+func (rm *ReadModel[T]) Stop() {
 	if rm.cancel != nil {
 		rm.cancel()
 	}
@@ -153,7 +188,7 @@ func (rm *ReadModel) Stop() {
 }
 
 // Wait blocks until all goroutines finish and returns any accumulated errors
-func (rm *ReadModel) Wait() error {
+func (rm *ReadModel[T]) Wait() error {
 	rm.wg.Wait()
 	close(rm.errCh)
 
@@ -168,12 +203,12 @@ func (rm *ReadModel) Wait() error {
 }
 
 // Errors returns the error channel for monitoring
-func (rm *ReadModel) Errors() <-chan error {
+func (rm *ReadModel[T]) Errors() <-chan error {
 	return rm.errCh
 }
 
 // runWatch is the Watch polling loop
-func (rm *ReadModel) runWatch() {
+func (rm *ReadModel[T]) runWatch() {
 	defer rm.wg.Done()
 
 	for {
@@ -198,46 +233,37 @@ type vsRawEvent struct {
 }
 
 // processNextBatch fetches and processes the next batch of events, then updates the cursor
-func (rm *ReadModel) processNextBatch() error {
-	// Phase 1: collect events in a read transaction (no side effects)
+func (rm *ReadModel[T]) processNextBatch() error {
 	batch, err := rm.fetchBatch()
 	if err != nil {
 		return fmt.Errorf("fetch batch: %w", err)
 	}
-
 	if len(batch) == 0 {
 		return nil
 	}
 
-	// Phase 2: process events (outside any transaction)
-	var lastVS dcb.Versionstamp
-	for _, item := range batch {
-		ev, err := rm.eventRegistry.deserialize(item.event)
-		if err != nil {
-			return fmt.Errorf("deserialize event at %x: %w", item.vs[:], err)
+	_, err = rm.db.Transact(func(tr fdb.Transaction) (any, error) {
+		stx := ScopedTx{tr: tr, space: rm.dataSpace}
+		var lastVS dcb.Versionstamp
+		for _, item := range batch {
+			ev, err := rm.eventRegistry.deserialize(item.event)
+			if err != nil {
+				return nil, fmt.Errorf("deserialize event at %x: %w", item.vs[:], err)
+			}
+			if err := rm.handler(stx, ev); err != nil {
+				return nil, fmt.Errorf("handler at %x: %w", item.vs[:], err)
+			}
+			lastVS = item.vs
 		}
-
-		if err := rm.handler(ev); err != nil {
-			return fmt.Errorf("handler at %x: %w", item.vs[:], err)
-		}
-
-		lastVS = item.vs
-	}
-
-	// Phase 3: persist cursor (only reached if all handlers succeeded)
-	if _, err := rm.db.Transact(func(tr fdb.Transaction) (any, error) {
 		tr.Set(rm.cursorKey, lastVS[:])
 		return nil, nil
-	}); err != nil {
-		return fmt.Errorf("update cursor: %w", err)
-	}
-
-	return nil
+	})
+	return err
 }
 
 // fetchBatch reads up to BatchSize events after the current cursor from all watched type indexes.
 // Events are returned in versionstamp order (global event order).
-func (rm *ReadModel) fetchBatch() ([]vsRawEvent, error) {
+func (rm *ReadModel[T]) fetchBatch() ([]vsRawEvent, error) {
 	var batch []vsRawEvent
 
 	_, err := rm.db.ReadTransact(func(tr fdb.ReadTransaction) (any, error) {
@@ -310,7 +336,7 @@ func (rm *ReadModel) fetchBatch() ([]vsRawEvent, error) {
 }
 
 // fetchRawEvent reads and decodes a single event from the events subspace
-func (rm *ReadModel) fetchRawEvent(tr fdb.ReadTransaction, vs dcb.Versionstamp) (dcb.Event, error) {
+func (rm *ReadModel[T]) fetchRawEvent(tr fdb.ReadTransaction, vs dcb.Versionstamp) (dcb.Event, error) {
 	var txVersion [10]byte
 	copy(txVersion[:], vs[:10])
 	userVersion := binary.BigEndian.Uint16(vs[10:12])
@@ -353,4 +379,26 @@ func (rm *ReadModel) fetchRawEvent(tr fdb.ReadTransaction, vs dcb.Versionstamp) 
 	}
 
 	return dcb.Event{Type: eventType, Tags: tags, Data: eventData}, nil
+}
+
+// Get retrieves values from the read model's data space.
+// Returns a slice of pointers; nil entries indicate missing keys.
+func (rm *ReadModel[T]) Get(keys ...tuple.Tuple) ([]*T, error) {
+	var results []*T
+	_, err := rm.db.ReadTransact(func(tr fdb.ReadTransaction) (any, error) {
+		results = make([]*T, len(keys))
+		for i, key := range keys {
+			data := tr.Get(rm.dataSpace.Pack(key)).MustGet()
+			if data == nil {
+				continue
+			}
+			var v T
+			if err := json.Unmarshal(data, &v); err != nil {
+				return nil, fmt.Errorf("unmarshal key %v: %w", key, err)
+			}
+			results[i] = &v
+		}
+		return nil, nil
+	})
+	return results, err
 }
