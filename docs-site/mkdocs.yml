@@ -1,0 +1,86 @@
+site_name: Fairway
+site_description: A Go framework for building micromodule backends with event sourcing
+site_url: https://err0r500.github.io/fairway/
+repo_url: https://github.com/err0r500/fairway
+repo_name: err0r500/fairway
+edit_uri: edit/main/docs-site/docs/
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.path
+    - navigation.top
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.code.annotate
+  icon:
+    repo: fontawesome/brands/github
+
+plugins:
+  - search
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - pymdownx.details
+  - attr_list
+  - md_in_html
+  - tables
+  - def_list
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+nav:
+  - Home: index.md
+  - DCB Store:
+    - Overview: dcb/index.md
+    - Interface & Types: dcb/store.md
+    - Queries: dcb/queries.md
+    - Storage Layout: dcb/storage.md
+    - Streaming Reads: dcb/streaming.md
+  - Framework:
+    - Overview: framework/index.md
+    - Events: framework/events.md
+    - Queries: framework/queries.md
+    - Commands: framework/commands.md
+    - Views: framework/views.md
+    - Automations: framework/automations.md
+    - HTTP Layer: framework/http.md
+  - Utilities:
+    - HTTP Utilities: utils/http.md
+  - Testing:
+    - Overview: testing/index.md
+    - given — Setup: testing/given.md
+    - when — Actions: testing/when.md
+    - then — Assertions: testing/then.md
