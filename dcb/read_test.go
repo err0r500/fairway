@@ -27,7 +27,7 @@ func TestReadByType(tt *testing.T) {
 		eventsWithOtherType := dcb.RandomEvents(t)
 		setEventsType(eventsWithOtherType, type1+"_other")
 
-		err := store.Append(ctx, append(events1, eventsWithOtherType...), nil)
+		err := store.Append(ctx, append(events1, eventsWithOtherType...))
 		assert.NoError(t, err)
 
 		// When - read Query{types:[T1]}
@@ -64,7 +64,7 @@ func TestReadByMultipleTypes(tt *testing.T) {
 		events3 := dcb.RandomEvents(t)
 		setEventsType(events3, type3)
 
-		err := store.Append(ctx, append(append(events1, events2...), events3...), nil)
+		err := store.Append(ctx, append(append(events1, events2...), events3...))
 		assert.NoError(t, err)
 
 		// When - read Query{types:[T1,T3]} (OR semantics)
@@ -98,7 +98,7 @@ func TestReadByTags(tt *testing.T) {
 		eventsB := dcb.RandomEvents(t)
 		setEventsTags(eventsB, []string{tagB})
 
-		err := store.Append(ctx, append(eventsA, eventsB...), nil)
+		err := store.Append(ctx, append(eventsA, eventsB...))
 		assert.NoError(t, err)
 
 		// When - read Query{tags:[A]}
@@ -132,7 +132,7 @@ func TestReadByMultipleTags(tt *testing.T) {
 		eventsA := dcb.RandomEvents(t)
 		setEventsTags(eventsA, []string{tagA})
 
-		err := store.Append(ctx, append(eventsAB, eventsA...), nil)
+		err := store.Append(ctx, append(eventsAB, eventsA...))
 		assert.NoError(t, err)
 
 		// When - read Query{tags:[A,B]} (AND semantics - must have both)
@@ -174,7 +174,7 @@ func TestReadByTypeAndTags(tt *testing.T) {
 		setEventsType(e3, type2)
 		setEventsTags(e3, []string{tagA})
 
-		err := store.Append(ctx, append(append(e1, e2...), e3...), nil)
+		err := store.Append(ctx, append(append(e1, e2...), e3...))
 		assert.NoError(t, err)
 
 		// When - read Query{types:[T1], tags:[A]}
@@ -211,7 +211,7 @@ func TestReadMultipleQueryItems(tt *testing.T) {
 
 		e3 := dcb.RandomEvents(t)
 
-		err := store.Append(ctx, append(append(e1, e2...), e3...), nil)
+		err := store.Append(ctx, append(append(e1, e2...), e3...))
 		assert.NoError(t, err)
 
 		// When - read Query{items:[{types:[T1]}, {tags:[A]}]} (OR between items)
@@ -238,7 +238,7 @@ func TestReadEmptyResult(tt *testing.T) {
 
 		events := dcb.RandomEvents(t)
 		setEventsType(events, type1)
-		err := store.Append(ctx, events, nil)
+		err := store.Append(ctx, events)
 		assert.NoError(t, err)
 
 		// When - read Query{types:[T2]}
@@ -264,7 +264,7 @@ func TestReadWithLimit(tt *testing.T) {
 		eventType := dcb.RandomEventType(t)
 		events := dcb.RandomEvents(t)
 		setEventsType(events, eventType)
-		err := store.Append(ctx, events, nil)
+		err := store.Append(ctx, events)
 		assert.NoError(t, err)
 
 		limit := rapid.IntRange(1, 10).Draw(t, "limit")
@@ -290,7 +290,7 @@ func TestReadWithAfter(tt *testing.T) {
 		eventType := dcb.RandomEventType(t)
 		events := dcb.RandomEvents(t)
 		setEventsType(events, eventType)
-		err := store.Append(ctx, events, nil)
+		err := store.Append(ctx, events)
 		assert.NoError(t, err)
 
 		// Get all events to find a midpoint
@@ -325,7 +325,7 @@ func TestReadWithLimitAndAfter(tt *testing.T) {
 		eventType := dcb.RandomEventType(t)
 		events := dcb.RandomEvents(t)
 		setEventsType(events, eventType)
-		err := store.Append(ctx, events, nil)
+		err := store.Append(ctx, events)
 		assert.NoError(t, err)
 
 		// Get all to find midpoint
@@ -373,7 +373,7 @@ func TestReadWithCancelledContext(tt *testing.T) {
 	events := []dcb.Event{
 		{Type: "test", Data: []byte("data")},
 	}
-	err := store.Append(ctx, events, nil)
+	err := store.Append(ctx, events)
 	assert.NoError(tt, err)
 
 	// When - read with already cancelled context
@@ -401,7 +401,7 @@ func TestReadAllWithCancelledContext(tt *testing.T) {
 	events := []dcb.Event{
 		{Type: "test", Data: []byte("data")},
 	}
-	err := store.Append(ctx, events, nil)
+	err := store.Append(ctx, events)
 	assert.NoError(tt, err)
 
 	// When - read all with already cancelled context
@@ -429,7 +429,7 @@ func TestReadCountsEventsCorrectly(tt *testing.T) {
 		eventType := dcb.RandomEventType(t)
 		events := dcb.RandomEvents(t)
 		setEventsType(events, eventType)
-		err := store.Append(ctx, events, nil)
+		err := store.Append(ctx, events)
 		assert.NoError(t, err)
 
 		// When - read all events
@@ -459,7 +459,7 @@ func TestEventOrderingWithMultipleRanges(tt *testing.T) {
 
 		// Append all together so they're interleaved
 		allEvents := append(e1, e2...)
-		err := store.Append(ctx, allEvents, nil)
+		err := store.Append(ctx, allEvents)
 		assert.NoError(t, err)
 
 		// When - read with query matching both types (multiple ranges)

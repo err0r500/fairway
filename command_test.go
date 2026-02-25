@@ -686,7 +686,7 @@ type mockStore struct {
 
 	// What to return from Append()
 	AppendError error
-	AppendFunc  func(context.Context, []dcb.Event, *dcb.AppendCondition) error
+	AppendFunc  func(context.Context, []dcb.Event, []dcb.AppendCondition) error
 
 	// Captured calls (for assertions)
 	AppendCalls []appendCall
@@ -694,8 +694,9 @@ type mockStore struct {
 }
 
 type appendCall struct {
-	Events    []dcb.Event
-	Condition *dcb.AppendCondition
+	Events     []dcb.Event
+	Conditions []dcb.AppendCondition
+	Condition  *dcb.AppendCondition // for backward compat in tests
 }
 
 type readCall struct {
@@ -722,15 +723,19 @@ func (m *mockStore) Read(ctx context.Context, query dcb.Query, opts *dcb.ReadOpt
 	}
 }
 
-func (m *mockStore) Append(ctx context.Context, events []dcb.Event, condition *dcb.AppendCondition) error {
+func (m *mockStore) Append(ctx context.Context, events []dcb.Event, conditions ...dcb.AppendCondition) error {
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
-	m.AppendCalls = append(m.AppendCalls, appendCall{Events: events, Condition: condition})
+	call := appendCall{Events: events, Conditions: conditions}
+	if len(conditions) > 0 {
+		call.Condition = &conditions[0]
+	}
+	m.AppendCalls = append(m.AppendCalls, call)
 
 	// Use AppendFunc if provided (for dynamic behavior in tests)
 	if m.AppendFunc != nil {
-		return m.AppendFunc(ctx, events, condition)
+		return m.AppendFunc(ctx, events, conditions)
 	}
 	return m.AppendError
 }
@@ -886,7 +891,7 @@ func (f commandWithEffectFunc[Deps]) Run(ctx context.Context, ra fairway.EventRe
 func TestRunPure_RetriesOnAppendConditionFailed(t *testing.T) {
 	attemptCount := 0
 	store := &mockStore{
-		AppendFunc: func(ctx context.Context, events []dcb.Event, cond *dcb.AppendCondition) error {
+		AppendFunc: func(ctx context.Context, events []dcb.Event, conds []dcb.AppendCondition) error {
 			attemptCount++
 			if attemptCount < 3 {
 				return dcb.ErrAppendConditionFailed
@@ -910,7 +915,7 @@ func TestRunPure_DoesNotRetryOnOtherErrors(t *testing.T) {
 	attemptCount := 0
 	expectedErr := errors.New("some other error")
 	store := &mockStore{
-		AppendFunc: func(ctx context.Context, events []dcb.Event, cond *dcb.AppendCondition) error {
+		AppendFunc: func(ctx context.Context, events []dcb.Event, conds []dcb.AppendCondition) error {
 			attemptCount++
 			return expectedErr
 		},
@@ -930,7 +935,7 @@ func TestRunPure_DoesNotRetryOnOtherErrors(t *testing.T) {
 func TestRunPure_RespectsMaxRetries(t *testing.T) {
 	attemptCount := 0
 	store := &mockStore{
-		AppendFunc: func(ctx context.Context, events []dcb.Event, cond *dcb.AppendCondition) error {
+		AppendFunc: func(ctx context.Context, events []dcb.Event, conds []dcb.AppendCondition) error {
 			attemptCount++
 			return dcb.ErrAppendConditionFailed // Always fail
 		},
@@ -953,7 +958,7 @@ func TestRunPure_RespectsMaxRetries(t *testing.T) {
 func TestRunPure_NoRetry(t *testing.T) {
 	attemptCount := 0
 	store := &mockStore{
-		AppendFunc: func(ctx context.Context, events []dcb.Event, cond *dcb.AppendCondition) error {
+		AppendFunc: func(ctx context.Context, events []dcb.Event, conds []dcb.AppendCondition) error {
 			attemptCount++
 			return dcb.ErrAppendConditionFailed
 		},
@@ -1016,7 +1021,7 @@ func TestRunPure_CommandLevelRetryOverridesRunner(t *testing.T) {
 func TestCommandWithEffectRunner_NoRetryByDefault(t *testing.T) {
 	attemptCount := 0
 	store := &mockStore{
-		AppendFunc: func(ctx context.Context, events []dcb.Event, cond *dcb.AppendCondition) error {
+		AppendFunc: func(ctx context.Context, events []dcb.Event, conds []dcb.AppendCondition) error {
 			attemptCount++
 			return dcb.ErrAppendConditionFailed
 		},

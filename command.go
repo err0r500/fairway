@@ -242,7 +242,7 @@ func (ra *commandReadAppender) AppendEventsNoCondition(ctx context.Context, even
 		return err
 	}
 
-	return ra.store.Append(ctx, dcbEvents, nil)
+	return ra.store.Append(ctx, dcbEvents)
 }
 
 // AppendEvents appends events with conditional check using tracked versionstamp
@@ -256,11 +256,11 @@ func (ra *commandReadAppender) AppendEvents(ctx context.Context, event Event, re
 	// Build condition using query if used
 	// (some commands may just append Event(s) without reading anything)
 	if ra.query == nil {
-		return ra.store.Append(ctx, dcbEvents, nil)
+		return ra.store.Append(ctx, dcbEvents)
 	}
 
 	return ra.store.Append(ctx, dcbEvents,
-		&dcb.AppendCondition{
+		dcb.AppendCondition{
 			Query: *ra.query,
 			After: ra.lastSeenVersionstamp,
 		})
