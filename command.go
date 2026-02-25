@@ -169,12 +169,17 @@ type EventReadAppenderExtended interface {
 	AppendEventsNoCondition(ctx context.Context, event Event, remainingEvents ...Event) error
 }
 
+// readRecord tracks a single read operation for condition reconstruction
+type readRecord struct {
+	query                dcb.Query
+	lastSeenVersionstamp *dcb.Versionstamp
+}
+
 // commandReadAppender provides read-then-conditional-append for commands
 type commandReadAppender struct {
-	lastSeenVersionstamp *dcb.Versionstamp
-	store                dcb.DcbStore
-	query                *dcb.Query
-	eventRegistry        eventRegistry
+	reads         []readRecord // tracks each read for condition generation
+	store         dcb.DcbStore
+	eventRegistry eventRegistry
 }
 
 // newReadAppender creates a ReadAppender with given store
@@ -206,9 +211,10 @@ func (ra *commandReadAppender) ReadEvents(ctx context.Context, query Query, hand
 	}
 
 	// Convert fairway Query to dcb Query
-	ra.query = query.toDcb()
+	dcbQuery := query.toDcb()
+	var lastVs *dcb.Versionstamp
 
-	for dcbStoredEvent, err := range ra.store.Read(ctx, *ra.query, nil) {
+	for dcbStoredEvent, err := range ra.store.Read(ctx, *dcbQuery, nil) {
 		if err != nil {
 			// context errors already have context
 			if ctx.Err() != nil {
@@ -217,8 +223,8 @@ func (ra *commandReadAppender) ReadEvents(ctx context.Context, query Query, hand
 			return fmt.Errorf("reading events: %s", err)
 		}
 
-		// Track last versionstamp
-		ra.lastSeenVersionstamp = &dcbStoredEvent.Position
+		// Track last versionstamp for this read
+		lastVs = &dcbStoredEvent.Position
 
 		// Deserialize dcb.Event → Event
 		ev, err := ra.eventRegistry.deserialize(dcbStoredEvent.Event)
@@ -228,9 +234,15 @@ func (ra *commandReadAppender) ReadEvents(ctx context.Context, query Query, hand
 
 		// Dispatch Event to handler
 		if !handler(ev) {
-			return nil
+			break
 		}
 	}
+
+	// Record this read for condition generation
+	ra.reads = append(ra.reads, readRecord{
+		query:                *dcbQuery,
+		lastSeenVersionstamp: lastVs,
+	})
 
 	return nil
 }
@@ -247,23 +259,26 @@ func (ra *commandReadAppender) AppendEventsNoCondition(ctx context.Context, even
 
 // AppendEvents appends events with conditional check using tracked versionstamp
 func (ra *commandReadAppender) AppendEvents(ctx context.Context, event Event, remainingEvents ...Event) error {
-	// Serialize Event → dcb.Event
 	dcbEvents, err := serializeEvents(append([]Event{event}, remainingEvents...))
 	if err != nil {
 		return err
 	}
 
-	// Build condition using query if used
-	// (some commands may just append Event(s) without reading anything)
-	if ra.query == nil {
+	// No reads = no conditions
+	if len(ra.reads) == 0 {
 		return ra.store.Append(ctx, dcbEvents)
 	}
 
-	return ra.store.Append(ctx, dcbEvents,
-		dcb.AppendCondition{
-			Query: *ra.query,
-			After: ra.lastSeenVersionstamp,
-		})
+	// Build one condition per read
+	conditions := make([]dcb.AppendCondition, len(ra.reads))
+	for i, r := range ra.reads {
+		conditions[i] = dcb.AppendCondition{
+			Query: r.query,
+			After: r.lastSeenVersionstamp,
+		}
+	}
+
+	return ra.store.Append(ctx, dcbEvents, conditions...)
 }
 
 func serializeEvents(events []Event) ([]dcb.Event, error) {
