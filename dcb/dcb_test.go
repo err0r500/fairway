@@ -42,7 +42,7 @@ func TestReadQueryWithEmptyTypes(tt *testing.T) {
 		tag := dcb.RandomEventTag(t)
 		events := dcb.RandomEvents(t)
 		setEventsTags(events, []string{tag})
-		err := store.Append(ctx, events, nil)
+		err := store.Append(ctx, events)
 		assert.NoError(t, err)
 
 		// When - read with empty types array but valid tags
@@ -66,7 +66,7 @@ func TestReadQueryWithEmptyTags(tt *testing.T) {
 		eventType := dcb.RandomEventType(t)
 		events := dcb.RandomEvents(t)
 		setEventsType(events, eventType)
-		err := store.Append(ctx, events, nil)
+		err := store.Append(ctx, events)
 		assert.NoError(t, err)
 
 		// When - read with empty tags array but valid types
@@ -122,10 +122,10 @@ func TestVersionstampString(tt *testing.T) {
 // 		events := randomEventsOfType(t, 10, eventType)
 
 // 		// When - append then read
-// 		err := store.Append(context.Background(), events, nil)
+// 		err := store.Append(context.Background(), events)
 // 		assert.NoError(t, err)
 
-// 		stored := collectEvents(tt, store.Read(context.Background(), Query{Items: []QueryItem{{Types: []string{eventType}}}}, nil))
+// 		stored := collectEvents(tt, store.Read(context.Background(), Query{Items: []QueryItem{{Types: []string{eventType}}}}))
 
 // 		// Then - all events returned with assigned versionstamps
 // 		assert.Len(t, stored, len(events))
@@ -146,12 +146,12 @@ func TestVersionstampString(tt *testing.T) {
 // 		// When - append in separate calls
 // 		for i := 0; i < 3; i++ {
 // 			events := randomEventsOfType(t, 2, eventType)
-// 			err := store.Append(context.Background(), events, nil)
+// 			err := store.Append(context.Background(), events)
 // 			assert.NoError(t, err)
 // 		}
 
 // 		// Then - versionstamps are monotonic increasing
-// 		stored := collectEvents(tt, store.Read(context.Background(), Query{Items: []QueryItem{{Types: []string{eventType}}}}, nil))
+// 		stored := collectEvents(tt, store.Read(context.Background(), Query{Items: []QueryItem{{Types: []string{eventType}}}}))
 // 		assert.True(t, eventsAreOrdered(stored))
 // 	})
 // }
@@ -169,10 +169,10 @@ func TestVersionstampString(tt *testing.T) {
 // 		}
 
 // 		// When - append then read
-// 		err := store.Append(context.Background(), []Event{event}, nil)
+// 		err := store.Append(context.Background(), []Event{event})
 // 		assert.NoError(t, err)
 
-// 		stored := collectEvents(tt, store.Read(context.Background(), Query{Items: []QueryItem{{Types: []string{event.Type}}}}, nil))
+// 		stored := collectEvents(tt, store.Read(context.Background(), Query{Items: []QueryItem{{Types: []string{event.Type}}}}))
 
 // 		// Then - data matches exactly
 // 		assert.Len(t, stored, 1)
@@ -197,10 +197,10 @@ func TestVersionstampString(tt *testing.T) {
 // 		}
 
 // 		// When - append then read
-// 		err := store.Append(context.Background(), []Event{event}, nil)
+// 		err := store.Append(context.Background(), []Event{event})
 // 		assert.NoError(t, err)
 
-// 		stored := collectEvents(tt, store.Read(context.Background(), Query{Items: []QueryItem{{Types: []string{event.Type}}}}, nil))
+// 		stored := collectEvents(tt, store.Read(context.Background(), Query{Items: []QueryItem{{Types: []string{event.Type}}}}))
 
 // 		// Then - tags match exactly
 // 		assert.Len(t, stored, 1)

@@ -30,7 +30,7 @@ func EventsInStore(store dcb.DcbStore, e fairway.Event, ee ...fairway.Event) {
 		dcbEvents[i] = dcbEvent
 	}
 
-	if err := store.Append(ctx, dcbEvents, nil); err != nil {
+	if err := store.Append(ctx, dcbEvents); err != nil {
 		panic(err)
 	}
 }

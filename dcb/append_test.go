@@ -17,7 +17,7 @@ func TestAppendSingleEvent(tt *testing.T) {
 		event := dcb.RandomEvent(t)
 
 		// When
-		err := store.Append(context.Background(), []dcb.Event{event}, nil)
+		err := store.Append(context.Background(), []dcb.Event{event})
 
 		// Then - succeeds
 		assert.NoError(t, err)
@@ -36,7 +36,7 @@ func TestAppendMultipleEvents(tt *testing.T) {
 		events := dcb.RandomEvents(t)
 
 		// When - append multiple events in single call
-		err := store.Append(ctx, events, nil)
+		err := store.Append(ctx, events)
 
 		// Then - succeeds, all stored in order
 		assert.NoError(t, err)
@@ -61,7 +61,7 @@ func TestAppendEmptySlice(tt *testing.T) {
 	store := dcb.SetupTestStore(tt)
 
 	// When - append empty slice
-	err := store.Append(context.Background(), []dcb.Event{}, nil)
+	err := store.Append(context.Background(), []dcb.Event{})
 
 	// Then - fails with ErrEmptyEvents
 	assert.ErrorIs(tt, err, dcb.ErrEmptyEvents)
@@ -79,7 +79,7 @@ func TestAppendEventWithNoTags(tt *testing.T) {
 	}
 
 	// When - append event with no tags
-	err := store.Append(context.Background(), []dcb.Event{event}, nil)
+	err := store.Append(context.Background(), []dcb.Event{event})
 
 	// Then - succeeds and event is stored without tags
 	assert.NoError(tt, err)
@@ -99,7 +99,7 @@ func TestAppendConditionExists(tt *testing.T) {
 		existing := dcb.RandomEvent(t)
 		existing.Type = eventType
 
-		err := store.Append(ctx, []dcb.Event{existing}, nil)
+		err := store.Append(ctx, []dcb.Event{existing})
 		assert.NoError(t, err)
 
 		// When - try to append with condition that event doesn't exist
@@ -108,7 +108,7 @@ func TestAppendConditionExists(tt *testing.T) {
 			Query: dcb.Query{Items: []dcb.QueryItem{{Types: []string{eventType}}}},
 		}
 
-		err = store.Append(ctx, []dcb.Event{newEvent}, condition)
+		err = store.Append(ctx, []dcb.Event{newEvent}, *condition)
 
 		// Then - fails with ErrAppendConditionFailed
 		assert.ErrorIs(t, err, dcb.ErrAppendConditionFailed)
@@ -134,7 +134,122 @@ func TestAppendConditionDoesNotExist(tt *testing.T) {
 			Query: dcb.Query{Items: []dcb.QueryItem{{Types: []string{eventType}}}},
 		}
 
-		err := store.Append(ctx, []dcb.Event{newEvent}, condition)
+		err := store.Append(ctx, []dcb.Event{newEvent}, *condition)
+
+		// Then - succeeds
+		assert.NoError(t, err)
+		storedEvents := dcb.CollectEvents(tt, store.ReadAll(ctx))
+		assert.Len(t, storedEvents, 1)
+	})
+}
+
+func TestAppendMultipleConditions_AllPass(tt *testing.T) {
+	tt.Parallel()
+	rapid.Check(tt, func(t *rapid.T) {
+		// Given - empty store
+		ctx := context.Background()
+		store := dcb.SetupTestStore(tt)
+		eventType1 := dcb.RandomEventType(t)
+		eventType2 := eventType1 + "_other"
+
+		// When - append with multiple conditions, all pass (no existing events)
+		newEvent := dcb.RandomEvent(t)
+		cond1 := dcb.AppendCondition{
+			Query: dcb.Query{Items: []dcb.QueryItem{{Types: []string{eventType1}}}},
+		}
+		cond2 := dcb.AppendCondition{
+			Query: dcb.Query{Items: []dcb.QueryItem{{Types: []string{eventType2}}}},
+		}
+
+		err := store.Append(ctx, []dcb.Event{newEvent}, cond1, cond2)
+
+		// Then - succeeds
+		assert.NoError(t, err)
+		storedEvents := dcb.CollectEvents(tt, store.ReadAll(ctx))
+		assert.Len(t, storedEvents, 1)
+	})
+}
+
+func TestAppendMultipleConditions_OneFails(tt *testing.T) {
+	tt.Parallel()
+	rapid.Check(tt, func(t *rapid.T) {
+		// Given - store with one event
+		ctx := context.Background()
+		store := dcb.SetupTestStore(tt)
+		eventType1 := dcb.RandomEventType(t)
+		eventType2 := eventType1 + "_other"
+
+		existing := dcb.RandomEvent(t)
+		existing.Type = eventType1
+		err := store.Append(ctx, []dcb.Event{existing})
+		assert.NoError(t, err)
+
+		// When - append with multiple conditions, one fails
+		newEvent := dcb.RandomEvent(t)
+		cond1 := dcb.AppendCondition{
+			Query: dcb.Query{Items: []dcb.QueryItem{{Types: []string{eventType1}}}}, // fails
+		}
+		cond2 := dcb.AppendCondition{
+			Query: dcb.Query{Items: []dcb.QueryItem{{Types: []string{eventType2}}}}, // passes
+		}
+
+		err = store.Append(ctx, []dcb.Event{newEvent}, cond1, cond2)
+
+		// Then - fails with ErrAppendConditionFailed
+		assert.ErrorIs(t, err, dcb.ErrAppendConditionFailed)
+
+		// Verify only original event exists
+		storedEvents := dcb.CollectEvents(tt, store.ReadAll(ctx))
+		assert.Len(t, storedEvents, 1)
+		assert.Equal(t, existing, storedEvents[0].Event)
+	})
+}
+
+func TestAppendMultipleConditions_SecondFails(tt *testing.T) {
+	tt.Parallel()
+	rapid.Check(tt, func(t *rapid.T) {
+		// Given - store with one event
+		ctx := context.Background()
+		store := dcb.SetupTestStore(tt)
+		eventType1 := dcb.RandomEventType(t)
+		eventType2 := eventType1 + "_other"
+
+		existing := dcb.RandomEvent(t)
+		existing.Type = eventType2
+		err := store.Append(ctx, []dcb.Event{existing})
+		assert.NoError(t, err)
+
+		// When - append with multiple conditions, second one fails
+		newEvent := dcb.RandomEvent(t)
+		cond1 := dcb.AppendCondition{
+			Query: dcb.Query{Items: []dcb.QueryItem{{Types: []string{eventType1}}}}, // passes
+		}
+		cond2 := dcb.AppendCondition{
+			Query: dcb.Query{Items: []dcb.QueryItem{{Types: []string{eventType2}}}}, // fails
+		}
+
+		err = store.Append(ctx, []dcb.Event{newEvent}, cond1, cond2)
+
+		// Then - fails with ErrAppendConditionFailed
+		assert.ErrorIs(t, err, dcb.ErrAppendConditionFailed)
+
+		// Verify only original event exists
+		storedEvents := dcb.CollectEvents(tt, store.ReadAll(ctx))
+		assert.Len(t, storedEvents, 1)
+		assert.Equal(t, existing, storedEvents[0].Event)
+	})
+}
+
+func TestAppendNoConditions(tt *testing.T) {
+	tt.Parallel()
+	rapid.Check(tt, func(t *rapid.T) {
+		// Given - empty store
+		ctx := context.Background()
+		store := dcb.SetupTestStore(tt)
+
+		// When - append without any conditions (variadic empty)
+		event := dcb.RandomEvent(t)
+		err := store.Append(ctx, []dcb.Event{event})
 
 		// Then - succeeds
 		assert.NoError(t, err)

@@ -4,7 +4,7 @@ Low-level access to the eventstore
 It exposes a [DCB](https://dcb.events) compliant storage interface backed by [foundationdb](https://www.foundationdb.org)
 ```go
 type DcbStore interface {
-	Append(ctx context.Context, events []Event, condition *AppendCondition) error
+	Append(ctx context.Context, events []Event, conditions ...AppendCondition) error
 	Read(ctx context.Context, query Query, opts *ReadOptions) iter.Seq2[StoredEvent, error]
 	ReadAll(ctx context.Context) iter.Seq2[StoredEvent, error]
 }

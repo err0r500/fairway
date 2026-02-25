@@ -7,6 +7,7 @@ require (
 	github.com/avast/retry-go/v4 v4.7.0
 	github.com/go-playground/validator/v10 v10.30.1
 	github.com/google/uuid v1.6.0
+	golang.org/x/sync v0.19.0
 	resty.dev/v3 v3.0.0-beta.6
 )
 

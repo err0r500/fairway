@@ -263,7 +263,12 @@ func appendEvent(ctx context.Context, store dcb.DcbStore, eventType string, tags
 
 func appendEvents(ctx context.Context, store dcb.DcbStore, events []dcb.Event, condition *dcb.AppendCondition) error {
 	start := time.Now()
-	err := store.Append(ctx, events, condition)
+	var err error
+	if condition != nil {
+		err = store.Append(ctx, events, *condition)
+	} else {
+		err = store.Append(ctx, events)
+	}
 	duration := time.Since(start)
 	recordAppend(duration, err == nil)
 	totalAppends.Add(1)

@@ -126,7 +126,7 @@ func TestAutomation_BasicEventProcessing(t *testing.T) {
 	dcbEvent, err := fairway.ToDcbEvent(fairway.NewEvent(testEvent))
 	require.NoError(t, err)
 
-	err = store.Append(ctx, []dcb.Event{dcbEvent}, nil)
+	err = store.Append(ctx, []dcb.Event{dcbEvent})
 	require.NoError(t, err)
 
 	// Wait for handler to be called
@@ -176,7 +176,7 @@ func TestAutomation_CursorPersistence(t *testing.T) {
 
 	// Append first event
 	event1, _ := fairway.ToDcbEvent(fairway.NewEvent(TestAutomationEvent{UserID: "user-1"}))
-	err := store.Append(ctx, []dcb.Event{event1}, nil)
+	err := store.Append(ctx, []dcb.Event{event1})
 	require.NoError(t, err)
 
 	// Start automation, process first event, then stop
@@ -199,7 +199,7 @@ func TestAutomation_CursorPersistence(t *testing.T) {
 
 	// Append second event while automation is stopped
 	event2, _ := fairway.ToDcbEvent(fairway.NewEvent(TestAutomationEvent{UserID: "user-2"}))
-	err = store.Append(ctx, []dcb.Event{event2}, nil)
+	err = store.Append(ctx, []dcb.Event{event2})
 	require.NoError(t, err)
 
 	// Reset counter
@@ -256,7 +256,7 @@ func TestAutomation_RetryOnFailure(t *testing.T) {
 	// Append an event
 	testEvent := TestAutomationEvent{UserID: "user-fail"}
 	dcbEvent, _ := fairway.ToDcbEvent(fairway.NewEvent(testEvent))
-	err = store.Append(ctx, []dcb.Event{dcbEvent}, nil)
+	err = store.Append(ctx, []dcb.Event{dcbEvent})
 	require.NoError(t, err)
 
 	// Wait for retries (with backoff this might take a while)
@@ -295,7 +295,7 @@ func TestAutomation_DLQAfterMaxAttempts(t *testing.T) {
 	// Append an event
 	testEvent := TestAutomationEvent{UserID: "user-dlq"}
 	dcbEvent, _ := fairway.ToDcbEvent(fairway.NewEvent(testEvent))
-	err = store.Append(ctx, []dcb.Event{dcbEvent}, nil)
+	err = store.Append(ctx, []dcb.Event{dcbEvent})
 	require.NoError(t, err)
 
 	// Wait for DLQ (backoff is short in test)
@@ -337,7 +337,7 @@ func TestAutomation_NoDuplicateProcessing(t *testing.T) {
 	// Append a single event
 	testEvent := TestAutomationEvent{UserID: "user-single"}
 	dcbEvent, _ := fairway.ToDcbEvent(fairway.NewEvent(testEvent))
-	err = store.Append(ctx, []dcb.Event{dcbEvent}, nil)
+	err = store.Append(ctx, []dcb.Event{dcbEvent})
 	require.NoError(t, err)
 
 	// Wait for processing
@@ -378,7 +378,7 @@ func TestAutomation_LeaseExpiry(t *testing.T) {
 	// Append an event
 	testEvent := TestAutomationEvent{UserID: "user-lease"}
 	dcbEvent, _ := fairway.ToDcbEvent(fairway.NewEvent(testEvent))
-	err := store.Append(ctx, []dcb.Event{dcbEvent}, nil)
+	err := store.Append(ctx, []dcb.Event{dcbEvent})
 	require.NoError(t, err)
 
 	// Start first automation with very short lease
@@ -431,7 +431,7 @@ func TestAutomation_MultipleEvents(t *testing.T) {
 	for i := range eventCount {
 		testEvent := TestAutomationEvent{UserID: fmt.Sprintf("user-%d", i)}
 		dcbEvent, _ := fairway.ToDcbEvent(fairway.NewEvent(testEvent))
-		err = store.Append(ctx, []dcb.Event{dcbEvent}, nil)
+		err = store.Append(ctx, []dcb.Event{dcbEvent})
 		require.NoError(t, err)
 	}
 
