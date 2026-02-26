@@ -1,22 +1,20 @@
 # DCB Store
 
-The `dcb/` package provides low-level, DCB-compliant event storage backed by FoundationDB. It is the foundation everything else is built on.
+The `dcb/` package provides the event storage layer. It implements [Dynamic Consistency Boundaries](https://dcb.events) on top of FoundationDB.
 
 ---
 
-## What is DCB?
+## What DCB Solves
 
-[Dynamic Consistency Boundaries (DCB)](https://dcb.events) is an event sourcing model where optimistic locking is scoped not to a fixed aggregate boundary, but to the data a command actually reads. This eliminates unnecessary contention between commands that touch different parts of the system.
+Traditional event stores fix consistency at the stream level. One stream = one aggregate = one lock.
 
-In Fairway, this means:
+DCB removes this constraint. Consistency boundaries emerge from what each command actually reads.
 
-- A command reads only the events relevant to its decision.
-- The conditional append checks only for new events matching that specific read.
-- Two commands operating on different entities never block each other, even in the same "domain".
+**[Learn more: Dynamic consistency →](../solution/dynamic-consistency.md)**
 
 ---
 
-## The `DcbStore` Interface
+## The Interface
 
 ```go
 type DcbStore interface {
@@ -30,20 +28,9 @@ type DcbStore interface {
 
 | Method | Purpose |
 |---|---|
-| `Append` | Writes events, optionally with a conditional guard |
-| `Read` | Streams events matching a query in versionstamp order |
-| `ReadAll` | Streams every event in the namespace |
-| `Database` | Returns the underlying FDB database handle |
-| `Namespace` | Returns the namespace prefix for this store |
-
----
-
-## Sections
-
-- [Interface & Types](store.md) — All types: `Event`, `Versionstamp`, `AppendCondition`, `StoredEvent`
-- [Queries](queries.md) — How to filter events with `Query` and `QueryItem`
-- [Storage Layout](storage.md) — How events are indexed in FoundationDB
-- [Streaming Reads](streaming.md) — K-way merge algorithm for memory-efficient streaming
+| `Append` | Write events, optionally with conditional guard |
+| `Read` | Stream events matching a query |
+| `ReadAll` | Stream all events in namespace |
 
 ---
 
@@ -60,8 +47,6 @@ db := fdb.MustOpenDefault()
 store := dcb.NewDcbStore(db, "myapp")
 ```
 
-The `namespace` parameter isolates this store from other stores sharing the same FDB cluster. Use distinct namespaces per application or environment.
-
 ### With Observability
 
 ```go
@@ -73,10 +58,19 @@ store := dcb.NewDcbStore(db, "myapp",
 
 ---
 
+## Sections
+
+- [Interface & Types](store.md) — `Event`, `Versionstamp`, `StoredEvent`
+- [Append Conditions](append-conditions.md) — conditional writes, conflict detection
+- [Storage Layout](storage.md) — how events are indexed in FDB
+- [Streaming Reads](streaming.md) — k-way merge for memory-efficient reads
+
+---
+
 ## Errors
 
 | Error | Meaning |
 |---|---|
-| `ErrEmptyEvents` | `Append` called with an empty slice |
-| `ErrAppendConditionFailed` | The append condition was violated — another writer appended a matching event first |
-| `ErrInvalidQuery` | A `QueryItem` has neither types nor tags |
+| `ErrEmptyEvents` | `Append` called with empty slice |
+| `ErrAppendConditionFailed` | Condition violated — retry |
+| `ErrInvalidQuery` | `QueryItem` has neither types nor tags |

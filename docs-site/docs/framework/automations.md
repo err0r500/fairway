@@ -31,6 +31,32 @@ Every `Automation` implements `Startable`. `Start` launches background goroutine
 
 ---
 
+## `CommandWithEffect`
+
+Automations run commands that may have side effects (sending email, calling APIs). Use `CommandWithEffect`:
+
+```go
+type CommandWithEffect[Deps any] interface {
+    Run(ctx context.Context, ra EventReadAppenderExtended, deps Deps) error
+}
+```
+
+`Deps` is injected at automation creation. `EventReadAppenderExtended` extends `EventReadAppender` with:
+
+```go
+type EventReadAppenderExtended interface {
+    EventReadAppender
+    AppendEventsNoCondition(ctx context.Context, event Event, rest ...Event) error
+}
+```
+
+`AppendEventsNoCondition` appends without conditional guard — useful when a side effect already happened and retry would duplicate it.
+
+!!! warning "No retry by default"
+    Side effects (sending email, charging a card) may not be safe to repeat. The automation retries the whole command only if configured explicitly and your side effects are idempotent.
+
+---
+
 ## `Automation[Deps]`
 
 ```go

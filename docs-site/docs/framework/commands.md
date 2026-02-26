@@ -23,11 +23,13 @@ type EventReadAppender interface {
 
 ### Lifecycle Inside `Run`
 
-1. Call `ReadEvents(ctx, query, handler)` — reads events and tracks the last versionstamp.
-2. Make a decision based on what was read.
-3. Call `AppendEvents(ctx, newEvent)` — appends with a conditional check using the tracked versionstamp.
+1. Call `ReadEvents(ctx, query, handler)` — reads events
+2. Make a decision based on what was read
+3. Call `AppendEvents(ctx, newEvent)` — appends new events
 
-If another writer appended a matching event between steps 1 and 3, `AppendEvents` returns `ErrAppendConditionFailed`. The runner retries the entire `Run` from scratch.
+**Under the hood:** every `ReadEvents` call is tracked. When `AppendEvents` runs, it builds an `AppendCondition` from all tracked reads. The append succeeds only if no matching events were written since the reads — guaranteeing the decision is still valid.
+
+If a concurrent write invalidates the decision, `AppendEvents` returns `ErrAppendConditionFailed` and the runner retries from scratch.
 
 ---
 
@@ -115,51 +117,6 @@ func (cmd createListCommand) RetryOptions() []retry.Option {
 
 ---
 
-## Commands with Side Effects
-
-When a command needs to interact with external systems (sending email, calling an API), use `CommandWithEffect`:
-
-```go
-type CommandWithEffect[Deps any] interface {
-    Run(ctx context.Context, ra EventReadAppenderExtended, deps Deps) error
-}
-```
-
-`Deps` is injected at runner creation time. `EventReadAppenderExtended` extends `EventReadAppender` with:
-
-```go
-type EventReadAppenderExtended interface {
-    EventReadAppender
-    AppendEventsNoCondition(ctx context.Context, event Event, rest ...Event) error
-}
-```
-
-`AppendEventsNoCondition` appends without a conditional guard — useful when a side-effecting command must not retry its append (since the side effect already happened).
-
-### `CommandWithEffectRunner`
-
-```go
-type CommandWithEffectRunner[Deps any] interface {
-    CommandRunner                          // RunPure is still available
-    RunWithEffect(ctx context.Context, command CommandWithEffect[Deps]) error
-}
-```
-
-```go
-type EmailDeps struct {
-    Mailer *smtp.Client
-}
-
-runner := fairway.NewCommandWithEffectRunner(store, EmailDeps{Mailer: mailer})
-
-err := runner.RunWithEffect(ctx, &sendWelcomeEmailCommand{userId: "42"})
-```
-
-!!! warning "No retry by default for side effects"
-    `CommandWithEffectRunner` defaults to no retry (`Attempts(1)`) because side effects (sending email, charging a card) may not be safe to repeat. Enable retry explicitly only when your side effects are idempotent.
-
----
-
 ## Append Without Prior Read
 
 A command can append events without reading anything first. In this case no conditional check is applied:
@@ -180,16 +137,20 @@ RunPure(cmd)
     │
     └─► cmd.Run(ctx, readAppender)
             │
-            ├── ReadEvents(query)        ← tracks lastVersionstamp
+            ├── ReadEvents(query1)       ← tracked
+            ├── ReadEvents(query2)       ← tracked
             │
             ├── [decision logic]
             │
             └── AppendEvents(event)
                     │
+                    ├── builds AppendCondition from query1 + query2
+                    │
                     ├── OK → return nil
                     │
-                    └── ErrAppendConditionFailed
+                    └── ErrAppendConditionFailed (decision invalidated)
                             │
                             └─► retry (up to 3 times)
                                     └─► cmd.Run(ctx, fresh readAppender)
 ```
+
