@@ -63,20 +63,27 @@ markdown_extensions:
 
 nav:
   - Home: index.md
-  - DCB Store:
-    - Overview: dcb/index.md
-    - Interface & Types: dcb/store.md
-    - Queries: dcb/queries.md
-    - Storage Layout: dcb/storage.md
-    - Streaming Reads: dcb/streaming.md
+  - The Problem:
+    - Vertical Slicing: problem/vertical-slicing.md
+    - Hidden Coupling: problem/hidden-coupling.md
+  - The Solution:
+    - Events as Contracts: solution/events-as-contracts.md
+    - Dynamic Consistency: solution/dynamic-consistency.md
   - Framework:
     - Overview: framework/index.md
+    - Project Structure: framework/structure.md
     - Events: framework/events.md
     - Queries: framework/queries.md
     - Commands: framework/commands.md
     - Views: framework/views.md
     - Automations: framework/automations.md
     - HTTP Layer: framework/http.md
+  - DCB Store:
+    - Overview: dcb/index.md
+    - Interface & Types: dcb/store.md
+    - Append Conditions: dcb/append-conditions.md
+    - Storage Layout: dcb/storage.md
+    - Streaming Reads: dcb/streaming.md
   - Utilities:
     - HTTP Utilities: utils/http.md
   - Testing:

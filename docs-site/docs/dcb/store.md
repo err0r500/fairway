@@ -110,8 +110,6 @@ Used with `DcbStore.Read` to paginate or resume reading from a known position.
 
 ## `Query` and `QueryItem`
 
-See the [Queries page](queries.md) for full semantics and examples.
-
 ```go
 type QueryItem struct {
     Types []string // OR: match any of these types
@@ -122,6 +120,14 @@ type Query struct {
     Items []QueryItem // OR: match any item
 }
 ```
+
+| Scope | Operator |
+|---|---|
+| Types within item | OR |
+| Tags within item | AND |
+| Items within query | OR |
+
+At least one of `Types` or `Tags` must be non-empty per `QueryItem`.
 
 ---
 

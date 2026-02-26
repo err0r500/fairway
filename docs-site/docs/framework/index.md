@@ -1,19 +1,10 @@
 # Framework Layer
 
-The `fairway` root package builds on top of the [DCB store](../dcb/index.md) to provide high-level abstractions for building event-sourced applications.
+The `fairway` root package provides high-level abstractions built on FoundationDB:
 
----
-
-## Philosophy: Micromodules
-
-The UNIX philosophy applied to backends: system behavior emerges from tiny, independent modules composed through a shared event log.
-
-Each module:
-
-- **Does one thing** — changes one small part of the system, or displays one slice of information
-- **Is disposable** — replaceable at any time without breakage or migration
-- **Owns minimal state** — only what its specific task requires
-- **Never talks to other modules** — all composition happens through the shared log
+- **Events** via [DCB store](../dcb/index.md) — append-only log with dynamic consistency
+- **Queues** — job scheduling for automations, leases, DLQ
+- **KV read models** — persistent projections for fast lookups
 
 ---
 
@@ -21,15 +12,14 @@ Each module:
 
 ```
 fairway root package
-├── Event           — Wrapper around user data with timestamp
-├── Query           — High-level query builder (type-safe)
-├── QueryItem       — Single filter clause with builder API
-├── Command         — Read-then-conditionally-append pattern
-├── CommandRunner   — Executes commands with automatic retry
-├── EventsReader    — Reads events for projections (views)
-├── Automation      — Background event-driven command execution
-├── HttpChangeRegistry  — HTTP routing for commands
-└── HttpViewRegistry    — HTTP routing for views
+├── Event             — Wrapper around user data with timestamp
+├── Query / QueryItem — Filter events by type and tags
+├── Command           — Read-then-conditionally-append
+├── CommandRunner     — Execute with automatic retry
+├── EventsReader      — Read events for projections
+├── Automation        — Background event-driven execution
+├── HttpChangeRegistry    — HTTP routing for commands
+└── HttpViewRegistry      — HTTP routing for views
 ```
 
 ---
@@ -38,7 +28,7 @@ fairway root package
 
 ### Command
 
-Reads events to make a decision, then appends new events.
+Read events, decide, append new events.
 
 ```
 HTTP request → Command.Run() → ReadEvents() → AppendEvents() → HTTP response
@@ -47,7 +37,7 @@ HTTP request → Command.Run() → ReadEvents() → AppendEvents() → HTTP resp
 
 ### View
 
-Reads events and builds a live projection, returned directly.
+Read events, build projection, return.
 
 ```
 HTTP request → EventsReader.ReadEvents() → project state → HTTP response
@@ -55,19 +45,20 @@ HTTP request → EventsReader.ReadEvents() → project state → HTTP response
 
 ### Automation
 
-Watches the event log and runs commands without user interaction.
+Watch event log, run commands without user.
 
 ```
-Event appended → Automation detects it → Command.Run() → new events appended
+Event appended → Automation detects → Command.Run() → new events
 ```
 
 ---
 
 ## Sections
 
-- [Events](events.md) — `fairway.Event`, serialization, type resolution
-- [Queries](queries.md) — High-level `Query` and `QueryItem` builder
-- [Commands](commands.md) — `Command`, `CommandRunner`, `CommandWithEffect`, retry
+- [Project Structure](structure.md) — file layout, `init()` registration, code generation
+- [Events](events.md) — `fairway.Event`, serialization
+- [Queries](queries.md) — `Query`, `QueryItem`, filtering events
+- [Commands](commands.md) — `Command`, `CommandRunner`, retry
 - [Views](views.md) — `EventsReader`, live projections
-- [Automations](automations.md) — Background workers, queues, DLQ
+- [Automations](automations.md) — background workers, queues
 - [HTTP Layer](http.md) — `HttpChangeRegistry`, `HttpViewRegistry`

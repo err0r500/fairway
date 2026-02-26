@@ -1,41 +1,30 @@
 # Fairway
 
-**A Go framework for building micromodule backends with event sourcing.**
-Tiny, independent modules. One shared event log. Zero coupling.
+**Tiny, independent vertical slices. One shared event log. Zero coupling.**
+
+## The Problem
+
+Vertical slicing promises independent feature development. Reality usually delivers hidden coupling.
+
+**Shared databases** — slices touch the same tables. Schema changes require coordination.
+
+**Stream-per-aggregate** — consistency boundaries are fixed at design time. Commands that cross aggregates need sagas.
+
+**[Read more: The vertical slicing illusion →](problem/vertical-slicing.md)**
 
 ---
 
-!!! warning "Experimental"
-    Fairway is under heavy development and not yet published. Clone and try it locally.
+## The Solution
 
----
+**Events as the only contract.** Slices share nothing but the event log. No shared tables, streams, or types.
 
-## What is Fairway?
+**Dynamic consistency boundaries.** Each command's boundary emerges from what it actually reads — not from architectural diagrams.
 
-Fairway is a Go framework for building backends from small, self-contained modules that communicate exclusively through a shared event log. Each module does one thing and owns only the state it needs to do it.
-
-It is built on two foundations:
-
-- **[Dynamic Consistency Boundaries (DCB)](https://dcb.events)** — a model for event sourcing where consistency is scoped to the data a command actually reads, not to an entire aggregate.
-- **[FoundationDB](https://www.foundationdb.org)** — a distributed, ACID-compliant key-value store that handles events, queues, and read models in a single datastore.
-
----
-
-## Why Fairway?
-
-| Problem with traditional approaches | How Fairway addresses it |
-|---|---|
-| Shared domain models create coupling | Each command defines only the minimal model it needs |
-| Aggregates cause unnecessary contention | Optimistic locking covers only what a command actually reads |
-| Refactoring streams requires migrations | Events are stored flat; views reinterpret them, no migration needed |
-| Multiple databases to operate | FoundationDB handles events, queues, and read models |
-| Merge conflicts on shared code | Commands share no code; self-register via `init()` |
+**[Read more: Dynamic consistency →](solution/dynamic-consistency.md)**
 
 ---
 
 ## Architecture
-
-The abstraction stack, from lowest to highest:
 
 ```
 ┌─────────────────────────────────────────┐
@@ -45,48 +34,44 @@ The abstraction stack, from lowest to highest:
 ├─────────────────────────────────────────┤
 │         Framework Layer                 │  Command / View / Automation
 ├─────────────────────────────────────────┤
-│         Event & Query Layer             │  Event / Query / QueryItem
-├─────────────────────────────────────────┤
-│         DCB Store                       │  DcbStore / Append / Read
-├─────────────────────────────────────────┤
-│         FoundationDB                    │
+│         FoundationDB                    │  events (DCB) / queues / KV read models
 └─────────────────────────────────────────┘
 ```
+
+One datastore for everything: events, job queues, read model persistence.
 
 ---
 
 ## Three Patterns
 
-Every module implements exactly one of these patterns (from [Event Modeling](https://eventmodeling.org/)):
+Every module implements one of these:
 
 ```
-User action          Event log        Projection
-    │                    │                │
-    ▼                    ▼                ▼
-┌──────────┐    ┌──────────────┐    ┌──────────┐
-│ Command  │───▶│    Events    │───▶│   View   │
-└──────────┘    └──────┬───────┘    └──────────┘
-                       │
-               ┌───────▼──────┐
-               │  Automation  │  (View → Command, no user)
-               └──────────────┘
+User action        Event log           Projection
+    │                  │                   │
+    ▼                  ▼                   ▼
+┌──────────┐    ┌───────────────┐    ┌──────────┐
+│ Command  │───▶│    Events     │───▶│   View   │
+└──────────┘    └───────┬───────┘    └──────────┘
+                        │
+                ┌───────▼──────┐
+                │  Automation  │  (View → Command, no user)
+                └──────────────┘
 ```
 
 ---
 
 ## Quick Start
 
-**Prerequisites:** Go 1.24+, FoundationDB installed and running.
+**Prerequisites:** Go 1.24+, FoundationDB installed.
 
 ```bash
-# Clone and try the example
 git clone https://github.com/err0r500/fairway
 cd fairway/examples/todolist
 go generate ./...
 go run .
 ```
 
-Then:
 ```bash
 curl -X POST http://localhost:8080/api/lists/my-list \
      -H "Content-Type: application/json" \
@@ -101,16 +86,23 @@ curl http://localhost:8080/api/lists/my-list
 
 | Package | Description |
 |---|---|
-| [`dcb/`](dcb/index.md) | Low-level DCB-compliant event store backed by FoundationDB |
-| [Framework root](framework/index.md) | Command runner, event reader, automation, HTTP registries |
-| [`utils/`](utils/http.md) | HTTP helpers: JSON parsing, idempotency middleware |
-| [`testing/`](testing/index.md) | Test utilities: `given`, `when`, `then` helpers |
+| [Framework](framework/index.md) | Commands, views, automations, queues, KV read models |
+| [`dcb/`](dcb/index.md) | DCB-compliant event store on FoundationDB |
+| [`utils/`](utils/http.md) | HTTP helpers, idempotency middleware |
+| [`testing/`](testing/index.md) | `given`, `when`, `then` test helpers |
+
+---
+
+## Learn More
+
+- **[The Problem](problem/vertical-slicing.md)** — why vertical slicing fails
+- **[The Solution](solution/events-as-contracts.md)** — events as contracts
+- **[DCB Store](dcb/index.md)** — the foundation
+- **[Framework](framework/index.md)** — commands, views, automations
 
 ---
 
 ## Development
-
-To run tests, FoundationDB must be available. Set the build tag:
 
 ```bash
 export GOFLAGS="-tags=test"
