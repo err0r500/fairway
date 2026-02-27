@@ -79,6 +79,6 @@ func NewQueryItem() QueryItem {
 	return QueryItem{}
 }
 
-func QueryItems(items ...QueryItem) Query {
-	return Query{items: items}
+func QueryItems(items ...QueryItem) *Query {
+	return &Query{items: items}
 }

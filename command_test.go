@@ -592,7 +592,7 @@ func TestReadEvents_NilHandler(t *testing.T) {
 
 	impl := commandFunc(func(ctx context.Context, ra fairway.EventReadAppender) error {
 		// Handler with nil Handle function
-		return ra.ReadEvents(ctx, fairway.Query{}, nil)
+		return ra.ReadEvents(ctx, &fairway.Query{}, nil)
 	})
 
 	err := runner.RunPure(context.Background(), impl)

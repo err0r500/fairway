@@ -200,7 +200,7 @@ func newReadAppenderExtended(store dcb.DcbStore) EventReadAppenderExtended {
 }
 
 // ReadEvents reads events using the eventHandler's query and dispatches to handlers
-func (ra *commandReadAppender) ReadEvents(ctx context.Context, query Query, handler EventHandlerFunc) error {
+func (ra *commandReadAppender) ReadEvents(ctx context.Context, query *Query, handler EventHandlerFunc) error {
 	if handler == nil {
 		return nil
 	}

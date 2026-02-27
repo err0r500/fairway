@@ -45,7 +45,7 @@ func (cmd BorrowBook) Run(ctx context.Context, ev fairway.EventReadAppender) err
 		return err
 	}
 
-	if err := cmd.ensureReaderBorrowedBooksBelowThreshold(ctx, ev); err != nil {
+	if err := cmd.ensureReaderBelowMaxBorrowedBooksLimit(ctx, ev); err != nil {
 		return err
 	}
 
@@ -57,14 +57,13 @@ func (cmd BorrowBook) Run(ctx context.Context, ev fairway.EventReadAppender) err
 
 func (cmd BorrowBook) ensureBookNotCurrentlyBorrowed(ctx context.Context, ev fairway.EventsReader) error {
 	isBorrowed := false
-	bookQuery := fairway.QueryItems(
-		fairway.NewQueryItem().
-			Types(BookBorrowed{}, BookReturned{}).
-			Tags("book_id:" + cmd.BookId),
-	)
-	bookQuery.WithOptions(dcb.ReadOptions{Reverse: true, Limit: 1})
 
-	if err := ev.ReadEvents(ctx, bookQuery,
+	if err := ev.ReadEvents(ctx,
+		fairway.QueryItems(
+			fairway.NewQueryItem().
+				Types(BookBorrowed{}, BookReturned{}).
+				Tags("book_id:"+cmd.BookId),
+		).WithOptions(dcb.ReadOptions{Reverse: true, Limit: 1}),
 		func(e fairway.Event) bool {
 			_, isBorrowed = e.Data.(BookBorrowed)
 			return false // only need first event
@@ -79,7 +78,7 @@ func (cmd BorrowBook) ensureBookNotCurrentlyBorrowed(ctx context.Context, ev fai
 	return nil
 }
 
-func (cmd BorrowBook) ensureReaderBorrowedBooksBelowThreshold(ctx context.Context, ev fairway.EventsReader) error {
+func (cmd BorrowBook) ensureReaderBelowMaxBorrowedBooksLimit(ctx context.Context, ev fairway.EventsReader) error {
 	borrowerBooks := make(map[string]bool)
 	if err := ev.ReadEvents(ctx,
 		fairway.QueryItems(
