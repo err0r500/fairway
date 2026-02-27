@@ -26,7 +26,7 @@ var (
 )
 
 type DcbStore interface {
-	Append(ctx context.Context, events []Event, condition *AppendCondition) error
+	Append(ctx context.Context, events []Event, conditions ...AppendCondition) error
 	Read(ctx context.Context, query Query, opts *ReadOptions) iter.Seq2[StoredEvent, error]
 	ReadAll(ctx context.Context) iter.Seq2[StoredEvent, error]
 	Database() fdb.Database

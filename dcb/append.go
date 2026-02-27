@@ -7,12 +7,13 @@ import (
 
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"github.com/apple/foundationdb/bindings/go/src/fdb/tuple"
+	"golang.org/x/sync/errgroup"
 )
 
 // Append atomically appends events with optional condition checking
 // Returns error if condition fails or any other error occurs
-func (s fdbStore) Append(ctx context.Context, events []Event, condition *AppendCondition) error {
-	return s.appendInternal(ctx, events, condition, nil)
+func (s fdbStore) Append(ctx context.Context, events []Event, conditions ...AppendCondition) error {
+	return s.appendInternal(ctx, events, conditions, nil)
 }
 
 // appendInternal is the internal implementation of Append with an optional test hook
@@ -21,7 +22,7 @@ func (s fdbStore) Append(ctx context.Context, events []Event, condition *AppendC
 // Note: The FDB Go binding does not support context cancellation during transactions.
 // This function performs best-effort checks before and during the transaction, but
 // if ctx is cancelled during transaction commit, the transaction may still succeed.
-func (s fdbStore) appendInternal(ctx context.Context, events []Event, condition *AppendCondition, afterQueryHook func(exists bool)) error {
+func (s fdbStore) appendInternal(ctx context.Context, events []Event, conditions []AppendCondition, afterQueryHook func(exists bool)) error {
 	// Check context before starting
 	if err := ctx.Err(); err != nil {
 		return err
@@ -57,20 +58,27 @@ func (s fdbStore) appendInternal(ctx context.Context, events []Event, condition 
 			return nil, err
 		}
 
-		// Check append condition if specified
-		if condition != nil {
-			exists, err := s.queryExists(tr, condition.Query, condition.After)
-			if err != nil {
+		// Check append conditions concurrently if specified
+		if len(conditions) > 0 {
+			g, _ := errgroup.WithContext(ctx)
+			for _, cond := range conditions {
+				cond := cond
+				g.Go(func() error {
+					exists, err := s.queryExists(tr, cond.Query, cond.After)
+					if err != nil {
+						return err
+					}
+					if exists {
+						return ErrAppendConditionFailed
+					}
+					return nil
+				})
+			}
+			if err := g.Wait(); err != nil {
 				return nil, err
 			}
-
-			// Test hook: allow tests to pause here to force conflict scenarios
 			if afterQueryHook != nil {
-				afterQueryHook(exists)
-			}
-
-			if exists {
-				return nil, ErrAppendConditionFailed
+				afterQueryHook(false)
 			}
 		}
 

@@ -62,21 +62,21 @@ func TestConditionalAppend_AfterRead(tt *testing.T) {
 		err := runner.RunPure(context.Background(), cmd)
 		require.NoError(tt, err)
 
-		// Then - Conditional append should have condition with last versionstamp
+		// Then - Conditional append should have single condition
 		require.Len(tt, store.ReadCalls, 1, "should read once")
 		require.Len(tt, store.AppendCalls, 1, "should append once")
+		require.Len(tt, store.AppendCalls[0].Conditions, 1, "single read = single condition")
 
-		condition := store.AppendCalls[0].Condition
-		require.NotNil(tt, condition, "append after read should have condition")
+		condition := store.AppendCalls[0].Conditions[0]
 		require.NotNil(tt, condition.After, "condition should have versionstamp")
 		assert.Equal(tt, lastVersionstamp, *condition.After, "should use last read versionstamp")
 		assert.Len(tt, condition.Query.Items, 1, "condition should include query")
 	})
 }
 
-func TestMultipleReads_LastVersionstampWins(tt *testing.T) {
+func TestMultipleReads_GeneratesMultipleConditions(tt *testing.T) {
 	rapid.Check(tt, func(t *rapid.T) {
-		// Given - Command with multiple reads, each read updates the versionstamp
+		// Given - Command with multiple reads
 		storedEvents := RandomStoredEvents(t, 5)
 		lastVersionstamp := storedEvents[len(storedEvents)-1].Position
 
@@ -96,7 +96,7 @@ func TestMultipleReads_LastVersionstampWins(tt *testing.T) {
 				return err
 			}
 
-			// Second read (should update versionstamp to last event)
+			// Second read
 			if err := ra.ReadEvents(ctx,
 				fairway.QueryItems(
 					fairway.NewQueryItem().Types(TestEventB{}),
@@ -116,13 +116,19 @@ func TestMultipleReads_LastVersionstampWins(tt *testing.T) {
 		err := runner.RunPure(context.Background(), cmdFunc)
 		require.NoError(tt, err)
 
-		// Then - Should use last versionstamp from final read
+		// Then - Should generate 2 conditions (one per read)
 		require.Len(tt, store.AppendCalls, 1)
+		require.Len(tt, store.AppendCalls[0].Conditions, 2, "2 reads = 2 conditions")
 
-		condition := store.AppendCalls[0].Condition
-		require.NotNil(tt, condition)
-		require.NotNil(tt, condition.After)
-		assert.Equal(tt, lastVersionstamp, *condition.After, "should use versionstamp from last read")
+		// Both conditions have same versionstamp (mock returns same events)
+		for i, cond := range store.AppendCalls[0].Conditions {
+			require.NotNil(tt, cond.After, "condition %d should have versionstamp", i)
+			assert.Equal(tt, lastVersionstamp, *cond.After)
+		}
+
+		// First condition has 3 types, second has 1
+		assert.Len(tt, store.AppendCalls[0].Conditions[0].Query.Items[0].Types, 3)
+		assert.Len(tt, store.AppendCalls[0].Conditions[1].Query.Items[0].Types, 1)
 	})
 }
 
@@ -615,6 +621,89 @@ func TestMultipleAppends_InOneCommand(t *testing.T) {
 	assert.Nil(t, store.AppendCalls[1].Condition)
 }
 
+func TestMultipleReads_DetectsRaceOnEarlierQuery(t *testing.T) {
+	// Timeline: vsA < vsInserted < vsB
+	// queryA reads at vsA, event inserted at vsInserted (matches queryA), queryB reads at vsB
+	// If we only used vsB (highest), the append would succeed - missing the conflict on queryA
+	// With separate conditions, queryA's condition (After: vsA) catches the inserted event
+	vsA := dcb.Versionstamp{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	vsInserted := dcb.Versionstamp{2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	vsB := dcb.Versionstamp{3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	_ = vsInserted // used conceptually in AppendFunc
+
+	readCount := 0
+	store := &mockStore{}
+
+	// Dynamic read behavior: first read returns vsA, second returns vsB
+	store.ReadFunc = func(ctx context.Context, query dcb.Query, opts *dcb.ReadOptions) iter.Seq2[dcb.StoredEvent, error] {
+		readCount++
+		return func(yield func(dcb.StoredEvent, error) bool) {
+			if readCount == 1 {
+				// First read (queryA): returns event at vsA
+				yield(dcb.StoredEvent{
+					Event:    dcb.Event{Type: "TestEventA", Data: []byte(`{"occurredAt":"2024-01-01T00:00:00Z","data":{"Value":"a"}}`)},
+					Position: vsA,
+				}, nil)
+			} else {
+				// Second read (queryB): returns event at vsB
+				yield(dcb.StoredEvent{
+					Event:    dcb.Event{Type: "TestEventB", Data: []byte(`{"occurredAt":"2024-01-01T00:00:00Z","data":{"Count":1}}`)},
+					Position: vsB,
+				}, nil)
+			}
+		}
+	}
+
+	// Append fails because condition[0] (queryA, After:vsA) sees vsInserted
+	store.AppendFunc = func(ctx context.Context, events []dcb.Event, conds []dcb.AppendCondition) error {
+		// Simulate: an event matching queryA was inserted at vsInserted (between vsA and vsB)
+		// Condition 0: queryA with After=vsA -> FAILS (vsInserted > vsA matches queryA)
+		// If we only used vsB, this conflict would be missed!
+		for _, cond := range conds {
+			if cond.After != nil && *cond.After == vsA {
+				// This condition catches the race
+				return dcb.ErrAppendConditionFailed
+			}
+		}
+		return nil
+	}
+
+	runner := fairway.NewCommandRunner(store, fairway.WithRetryOptions(retry.Attempts(1)))
+
+	impl := commandFunc(func(ctx context.Context, ra fairway.EventReadAppender) error {
+		// Read queryA -> gets vsA
+		if err := ra.ReadEvents(ctx,
+			fairway.QueryItems(fairway.NewQueryItem().Types(TestEventA{})),
+			func(te fairway.Event) bool { return true },
+		); err != nil {
+			return err
+		}
+
+		// (Between reads: external insert at vsInserted matching queryA)
+
+		// Read queryB -> gets vsB
+		if err := ra.ReadEvents(ctx,
+			fairway.QueryItems(fairway.NewQueryItem().Types(TestEventB{})),
+			func(te fairway.Event) bool { return true },
+		); err != nil {
+			return err
+		}
+
+		return ra.AppendEvents(ctx, fairway.NewEvent(TestEventC{Flag: true}))
+	})
+
+	err := runner.RunPure(context.Background(), impl)
+
+	// Should fail - race detected on queryA
+	assert.ErrorIs(t, err, dcb.ErrAppendConditionFailed)
+
+	// Verify 2 conditions were generated
+	require.Len(t, store.AppendCalls, 1)
+	require.Len(t, store.AppendCalls[0].Conditions, 2)
+	assert.Equal(t, vsA, *store.AppendCalls[0].Conditions[0].After)
+	assert.Equal(t, vsB, *store.AppendCalls[0].Conditions[1].After)
+}
+
 func TestReadAppendReadAppend(t *testing.T) {
 	vs1 := dcb.Versionstamp{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 	vs2 := dcb.Versionstamp{2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
@@ -645,7 +734,7 @@ func TestReadAppendReadAppend(t *testing.T) {
 			return err
 		}
 
-		// Second read (should update versionstamp)
+		// Second read
 		if err := ra.ReadEvents(ctx,
 			fairway.QueryItems(
 				fairway.NewQueryItem().Types(TestEventB{}),
@@ -665,17 +754,25 @@ func TestReadAppendReadAppend(t *testing.T) {
 
 	require.Len(t, store.AppendCalls, 2)
 
-	// First append should use vs2 from first read (last event seen)
-	cond1 := store.AppendCalls[0].Condition
-	require.NotNil(t, cond1, "expected first append to have condition with versionstamp")
-	require.NotNil(t, cond1.After, "expected first append to have condition with versionstamp")
+	// First append: 1 read = 1 condition
+	require.Len(t, store.AppendCalls[0].Conditions, 1, "first append has 1 condition (1 read)")
+	cond1 := store.AppendCalls[0].Conditions[0]
+	require.NotNil(t, cond1.After)
 	assert.Equal(t, vs2, *cond1.After)
+	assert.Len(t, cond1.Query.Items[0].Types, 2, "first read queried 2 types")
 
-	// Second append should also use vs2 from second read (both events returned by mock)
-	cond2 := store.AppendCalls[1].Condition
-	require.NotNil(t, cond2, "expected second append to have condition with versionstamp")
-	require.NotNil(t, cond2.After, "expected second append to have condition with versionstamp")
-	assert.Equal(t, vs2, *cond2.After)
+	// Second append: 2 reads = 2 conditions
+	require.Len(t, store.AppendCalls[1].Conditions, 2, "second append has 2 conditions (2 reads)")
+	cond2a := store.AppendCalls[1].Conditions[0]
+	cond2b := store.AppendCalls[1].Conditions[1]
+
+	require.NotNil(t, cond2a.After)
+	assert.Equal(t, vs2, *cond2a.After)
+	assert.Len(t, cond2a.Query.Items[0].Types, 2, "first read queried 2 types")
+
+	require.NotNil(t, cond2b.After)
+	assert.Equal(t, vs2, *cond2b.After)
+	assert.Len(t, cond2b.Query.Items[0].Types, 1, "second read queried 1 type")
 }
 
 // mockStore provides controllable DcbStore for testing
@@ -683,10 +780,11 @@ type mockStore struct {
 	// What to return from Read()
 	ReadEvents []dcb.StoredEvent
 	ReadError  error
+	ReadFunc   func(context.Context, dcb.Query, *dcb.ReadOptions) iter.Seq2[dcb.StoredEvent, error]
 
 	// What to return from Append()
 	AppendError error
-	AppendFunc  func(context.Context, []dcb.Event, *dcb.AppendCondition) error
+	AppendFunc  func(context.Context, []dcb.Event, []dcb.AppendCondition) error
 
 	// Captured calls (for assertions)
 	AppendCalls []appendCall
@@ -694,8 +792,9 @@ type mockStore struct {
 }
 
 type appendCall struct {
-	Events    []dcb.Event
-	Condition *dcb.AppendCondition
+	Events     []dcb.Event
+	Conditions []dcb.AppendCondition
+	Condition  *dcb.AppendCondition // for backward compat in tests
 }
 
 type readCall struct {
@@ -705,6 +804,12 @@ type readCall struct {
 
 func (m *mockStore) Read(ctx context.Context, query dcb.Query, opts *dcb.ReadOptions) iter.Seq2[dcb.StoredEvent, error] {
 	m.ReadCalls = append(m.ReadCalls, readCall{Query: query, Opts: opts})
+
+	// Use ReadFunc if provided (for dynamic behavior in tests)
+	if m.ReadFunc != nil {
+		return m.ReadFunc(ctx, query, opts)
+	}
+
 	return func(yield func(dcb.StoredEvent, error) bool) {
 		if m.ReadError != nil {
 			yield(dcb.StoredEvent{}, m.ReadError)
@@ -722,15 +827,19 @@ func (m *mockStore) Read(ctx context.Context, query dcb.Query, opts *dcb.ReadOpt
 	}
 }
 
-func (m *mockStore) Append(ctx context.Context, events []dcb.Event, condition *dcb.AppendCondition) error {
+func (m *mockStore) Append(ctx context.Context, events []dcb.Event, conditions ...dcb.AppendCondition) error {
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
-	m.AppendCalls = append(m.AppendCalls, appendCall{Events: events, Condition: condition})
+	call := appendCall{Events: events, Conditions: conditions}
+	if len(conditions) > 0 {
+		call.Condition = &conditions[0]
+	}
+	m.AppendCalls = append(m.AppendCalls, call)
 
 	// Use AppendFunc if provided (for dynamic behavior in tests)
 	if m.AppendFunc != nil {
-		return m.AppendFunc(ctx, events, condition)
+		return m.AppendFunc(ctx, events, conditions)
 	}
 	return m.AppendError
 }
@@ -886,7 +995,7 @@ func (f commandWithEffectFunc[Deps]) Run(ctx context.Context, ra fairway.EventRe
 func TestRunPure_RetriesOnAppendConditionFailed(t *testing.T) {
 	attemptCount := 0
 	store := &mockStore{
-		AppendFunc: func(ctx context.Context, events []dcb.Event, cond *dcb.AppendCondition) error {
+		AppendFunc: func(ctx context.Context, events []dcb.Event, conds []dcb.AppendCondition) error {
 			attemptCount++
 			if attemptCount < 3 {
 				return dcb.ErrAppendConditionFailed
@@ -910,7 +1019,7 @@ func TestRunPure_DoesNotRetryOnOtherErrors(t *testing.T) {
 	attemptCount := 0
 	expectedErr := errors.New("some other error")
 	store := &mockStore{
-		AppendFunc: func(ctx context.Context, events []dcb.Event, cond *dcb.AppendCondition) error {
+		AppendFunc: func(ctx context.Context, events []dcb.Event, conds []dcb.AppendCondition) error {
 			attemptCount++
 			return expectedErr
 		},
@@ -930,7 +1039,7 @@ func TestRunPure_DoesNotRetryOnOtherErrors(t *testing.T) {
 func TestRunPure_RespectsMaxRetries(t *testing.T) {
 	attemptCount := 0
 	store := &mockStore{
-		AppendFunc: func(ctx context.Context, events []dcb.Event, cond *dcb.AppendCondition) error {
+		AppendFunc: func(ctx context.Context, events []dcb.Event, conds []dcb.AppendCondition) error {
 			attemptCount++
 			return dcb.ErrAppendConditionFailed // Always fail
 		},
@@ -953,7 +1062,7 @@ func TestRunPure_RespectsMaxRetries(t *testing.T) {
 func TestRunPure_NoRetry(t *testing.T) {
 	attemptCount := 0
 	store := &mockStore{
-		AppendFunc: func(ctx context.Context, events []dcb.Event, cond *dcb.AppendCondition) error {
+		AppendFunc: func(ctx context.Context, events []dcb.Event, conds []dcb.AppendCondition) error {
 			attemptCount++
 			return dcb.ErrAppendConditionFailed
 		},
@@ -1016,7 +1125,7 @@ func TestRunPure_CommandLevelRetryOverridesRunner(t *testing.T) {
 func TestCommandWithEffectRunner_NoRetryByDefault(t *testing.T) {
 	attemptCount := 0
 	store := &mockStore{
-		AppendFunc: func(ctx context.Context, events []dcb.Event, cond *dcb.AppendCondition) error {
+		AppendFunc: func(ctx context.Context, events []dcb.Event, conds []dcb.AppendCondition) error {
 			attemptCount++
 			return dcb.ErrAppendConditionFailed
 		},

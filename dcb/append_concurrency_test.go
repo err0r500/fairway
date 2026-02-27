@@ -342,8 +342,8 @@ func concurrentAppend(
 func tx1AppendsBeforeT2Read(store *fdbStore, tx1Events []Event, tx2Event Event, tx2Condition AppendCondition) appendResult {
 	ctx := context.Background()
 
-	tx1Result := store.Append(ctx, tx1Events, nil)
-	tx2Result := store.Append(ctx, []Event{tx2Event}, &tx2Condition)
+	tx1Result := store.Append(ctx, tx1Events)
+	tx2Result := store.Append(ctx, []Event{tx2Event}, tx2Condition)
 
 	return appendResult{tx1Result: tx1Result, tx2Result: tx2Result}
 }
@@ -354,7 +354,7 @@ func runT1AppendsnT2UsesAfter(
 	store := SetupTestStore(tt)
 	tx2Event := RandomEvent(t)
 
-	tx1Result := store.Append(ctx, []Event{{Type: tx1Type, Tags: tx1Tags}}, nil)
+	tx1Result := store.Append(ctx, []Event{{Type: tx1Type, Tags: tx1Tags}})
 	var lastPos Versionstamp
 	for e := range store.Read(ctx, Query{Items: tx2QueryItems}, nil) {
 		lastPos = e.Position
@@ -362,7 +362,7 @@ func runT1AppendsnT2UsesAfter(
 
 	tx2Result := store.Append(ctx,
 		[]Event{tx2Event},
-		&AppendCondition{Query: Query{Items: tx2QueryItems}, After: &lastPos},
+		AppendCondition{Query: Query{Items: tx2QueryItems}, After: &lastPos},
 	)
 
 	return appendResult{tx1Result: tx1Result, tx2Result: tx2Result}
@@ -384,7 +384,7 @@ func tx1AppendsAfterT2Read(t *rapid.T, store *fdbStore, tx1Events []Event, tx2Ev
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		results[1] = store.appendInternal(ctx, []Event{tx2Event}, &tx2Condition,
+		results[1] = store.appendInternal(ctx, []Event{tx2Event}, []AppendCondition{tx2Condition},
 			func(exists bool) {
 				assertOnce.Do(func() {
 					// Assert T2 found no events initially (only check on first attempt)
@@ -401,7 +401,7 @@ func tx1AppendsAfterT2Read(t *rapid.T, store *fdbStore, tx1Events []Event, tx2Ev
 	go func() {
 		defer wg.Done()
 		<-tx2QueryDone // Wait for T2's query to complete
-		results[0] = store.Append(ctx, tx1Events, nil)
+		results[0] = store.Append(ctx, tx1Events)
 		close(tx1AppendDone)
 	}()
 
