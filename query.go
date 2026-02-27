@@ -9,6 +9,13 @@ import (
 // Query represents the complete event filter for an event Handler
 type Query struct {
 	items []QueryItem
+	opts  *dcb.ReadOptions
+}
+
+// WithOptions sets read options (Limit, After) for this query
+func (q *Query) WithOptions(opts dcb.ReadOptions) *Query {
+	q.opts = &opts
+	return q
 }
 
 // QueryItem represents a single event filter pattern.
@@ -19,8 +26,8 @@ type QueryItem struct {
 	typeRegistry map[string]reflect.Type // used for deserialization of events based on their type
 }
 
-// HandlerFunc processes an event. Return false to stop iteration.
-type HandlerFunc func(Event) bool
+// EventHandlerFunc processes an event. Return false to stop iteration.
+type EventHandlerFunc func(Event) bool
 
 // resolveEventTypeName determines the event type name for an event instance.
 func resolveEventTypeName(event any) string {

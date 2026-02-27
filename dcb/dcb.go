@@ -87,8 +87,9 @@ type Query struct {
 
 // ReadOptions configures how events are read
 type ReadOptions struct {
-	Limit int           // Maximum number of events to return (0 = unlimited)
-	After *Versionstamp // Only return events after this versionstamp (exclusive)
+	Limit   int           // Maximum number of events to return (0 = unlimited)
+	After   *Versionstamp // Only return events after this versionstamp (exclusive)
+	Reverse bool          // Read in descending order (newest first)
 }
 
 // StoredEvent is an event with its assigned position.

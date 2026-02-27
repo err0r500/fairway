@@ -171,8 +171,8 @@ type EventReadAppenderExtended interface {
 
 // readRecord tracks a single read operation for condition reconstruction
 type readRecord struct {
-	query                dcb.Query
-	lastSeenVersionstamp *dcb.Versionstamp
+	query                  dcb.Query
+	highestSeenVersionstamp *dcb.Versionstamp
 }
 
 // commandReadAppender provides read-then-conditional-append for commands
@@ -200,7 +200,7 @@ func newReadAppenderExtended(store dcb.DcbStore) EventReadAppenderExtended {
 }
 
 // ReadEvents reads events using the eventHandler's query and dispatches to handlers
-func (ra *commandReadAppender) ReadEvents(ctx context.Context, query Query, handler HandlerFunc) error {
+func (ra *commandReadAppender) ReadEvents(ctx context.Context, query Query, handler EventHandlerFunc) error {
 	if handler == nil {
 		return nil
 	}
@@ -212,9 +212,10 @@ func (ra *commandReadAppender) ReadEvents(ctx context.Context, query Query, hand
 
 	// Convert fairway Query to dcb Query
 	dcbQuery := query.toDcb()
-	var lastVs *dcb.Versionstamp
+	var highestVs *dcb.Versionstamp
+	isReverse := query.opts != nil && query.opts.Reverse
 
-	for dcbStoredEvent, err := range ra.store.Read(ctx, *dcbQuery, nil) {
+	for dcbStoredEvent, err := range ra.store.Read(ctx, *dcbQuery, query.opts) {
 		if err != nil {
 			// context errors already have context
 			if ctx.Err() != nil {
@@ -223,8 +224,17 @@ func (ra *commandReadAppender) ReadEvents(ctx context.Context, query Query, hand
 			return fmt.Errorf("reading events: %s", err)
 		}
 
-		// Track last versionstamp for this read
-		lastVs = &dcbStoredEvent.Position
+		// Track versionstamp for append condition
+		// For reverse reads: track highest seen (first event is highest)
+		// For forward reads: track last yielded (which equals highest in ordered stream)
+		pos := dcbStoredEvent.Position
+		if isReverse {
+			if highestVs == nil || pos.Compare(*highestVs) > 0 {
+				highestVs = &pos
+			}
+		} else {
+			highestVs = &pos
+		}
 
 		// Deserialize dcb.Event → Event
 		ev, err := ra.eventRegistry.deserialize(dcbStoredEvent.Event)
@@ -240,8 +250,8 @@ func (ra *commandReadAppender) ReadEvents(ctx context.Context, query Query, hand
 
 	// Record this read for condition generation
 	ra.reads = append(ra.reads, readRecord{
-		query:                *dcbQuery,
-		lastSeenVersionstamp: lastVs,
+		query:                   *dcbQuery,
+		highestSeenVersionstamp: highestVs,
 	})
 
 	return nil
@@ -274,7 +284,7 @@ func (ra *commandReadAppender) AppendEvents(ctx context.Context, event Event, re
 	for i, r := range ra.reads {
 		conditions[i] = dcb.AppendCondition{
 			Query: r.query,
-			After: r.lastSeenVersionstamp,
+			After: r.highestSeenVersionstamp,
 		}
 	}
 

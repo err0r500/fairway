@@ -1143,3 +1143,47 @@ func TestCommandWithEffectRunner_NoRetryByDefault(t *testing.T) {
 	assert.ErrorIs(t, err, dcb.ErrAppendConditionFailed)
 	assert.Equal(t, 1, attemptCount, "CommandWithEffectRunner should NOT retry by default")
 }
+
+func TestReverseRead_TracksHighestVersionstamp(t *testing.T) {
+	// Events in store: vs1 < vs2 < vs3
+	vs1 := dcb.Versionstamp{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	vs2 := dcb.Versionstamp{2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	vs3 := dcb.Versionstamp{3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+
+	store := &mockStore{
+		ReadEvents: []dcb.StoredEvent{
+			// Reverse order: newest first
+			{Event: dcb.Event{Type: "TestEventA", Data: []byte(`{"occurredAt":"2024-01-01T00:00:00Z","data":{"Value":"c"}}`)}, Position: vs3},
+			{Event: dcb.Event{Type: "TestEventA", Data: []byte(`{"occurredAt":"2024-01-01T00:00:00Z","data":{"Value":"b"}}`)}, Position: vs2},
+			{Event: dcb.Event{Type: "TestEventA", Data: []byte(`{"occurredAt":"2024-01-01T00:00:00Z","data":{"Value":"a"}}`)}, Position: vs1},
+		},
+	}
+	runner := fairway.NewCommandRunner(store)
+
+	// Command reads with Limit 1 (simulating reverse read getting only newest)
+	readCount := 0
+	impl := commandFunc(func(ctx context.Context, ra fairway.EventReadAppender) error {
+		query := fairway.QueryItems(fairway.NewQueryItem().Types(TestEventA{}))
+		query.WithOptions(dcb.ReadOptions{Reverse: true, Limit: 1})
+
+		if err := ra.ReadEvents(ctx, query, func(te fairway.Event) bool {
+			readCount++
+			return readCount < 1 // Stop after first (vs3)
+		}); err != nil {
+			return err
+		}
+
+		return ra.AppendEvents(ctx, fairway.NewEvent(TestEventB{Count: 1}))
+	})
+
+	err := runner.RunPure(context.Background(), impl)
+	require.NoError(t, err)
+
+	// Condition should use vs3 (highest seen), not vs1 (last in forward order)
+	require.Len(t, store.AppendCalls, 1)
+	require.Len(t, store.AppendCalls[0].Conditions, 1)
+
+	cond := store.AppendCalls[0].Conditions[0]
+	require.NotNil(t, cond.After)
+	assert.Equal(t, vs3, *cond.After, "should track highest versionstamp (vs3), not last yielded in reverse")
+}

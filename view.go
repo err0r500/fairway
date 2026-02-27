@@ -12,7 +12,7 @@ import (
 )
 
 type EventsReader interface {
-	ReadEvents(ctx context.Context, query Query, handler HandlerFunc) error
+	ReadEvents(ctx context.Context, query Query, handler EventHandlerFunc) error
 }
 
 // commandReadAppender provides read-then-conditional-append for commands
@@ -30,7 +30,7 @@ func NewReader(store dcb.DcbStore) EventsReader {
 }
 
 // ReadEvents reads events using the eventHandler's query and dispatches to handlers
-func (ra viewReader) ReadEvents(ctx context.Context, query Query, handler HandlerFunc) error {
+func (ra viewReader) ReadEvents(ctx context.Context, query Query, handler EventHandlerFunc) error {
 	if handler == nil {
 		return nil
 	}
