@@ -25,13 +25,18 @@ type BookReturned struct {
 }
 
 func (e BookReturned) Tags() []string {
-	return []string{"book_id:" + e.BookId, "borrower_id:" + e.BorrowerId}
+	return []string{
+		"book_id:" + e.BookId,
+		"borrower_id:" + e.BorrowerId,
+	}
 }
 
 // COMMAND
 
-var ErrBookAlreadyBorrowed = errors.New("book is already borrowed")
-var ErrBorrowerLimitReached = errors.New("borrower has reached max 5 books")
+var (
+	ErrBookAlreadyBorrowed  = errors.New("book is already borrowed")
+	ErrBorrowerLimitReached = errors.New("borrower has reached max 5 books")
+)
 
 type BorrowBook struct {
 	BookId     string

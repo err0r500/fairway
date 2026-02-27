@@ -15,22 +15,20 @@ import (
 
 func TestBorrowBook_ConcurrentBorrowers_OnlyOneSucceeds(t *testing.T) {
 	t.Parallel()
-
-	store := given.SetupTestStore(t)
-	runner := fairway.NewCommandRunner(store)
-
-	bookId := "book-1"
+	// given
+	runner := fairway.NewCommandRunner(given.SetupTestStore(t))
 	borrowerCount := 5
 
 	var wg sync.WaitGroup
 	results := make(chan error, borrowerCount)
 
+	// when
 	for i := range borrowerCount {
 		wg.Add(1)
 		go func(borrowerId int) {
 			defer wg.Done()
 			cmd := library.BorrowBook{
-				BookId:     bookId,
+				BookId:     "book-1",
 				BorrowerId: string(rune('A' + borrowerId)),
 			}
 			results <- runner.RunPure(context.Background(), cmd)
@@ -40,6 +38,7 @@ func TestBorrowBook_ConcurrentBorrowers_OnlyOneSucceeds(t *testing.T) {
 	wg.Wait()
 	close(results)
 
+	// then
 	successCount := 0
 	alreadyBorrowedCount := 0
 	for err := range results {
