@@ -52,8 +52,8 @@ func (s fdbStore) Read(ctx context.Context, query Query, opts *ReadOptions) iter
 
 // initRangeIterator creates an iterator for a range and advances it to the first valid item.
 // Returns nil if the iterator is empty.
-func initRangeIterator(tr fdb.ReadTransaction, r fdb.Range) (*rangeIterator, error) {
-	iter := tr.GetRange(r, fdb.RangeOptions{}).Iterator()
+func initRangeIterator(tr fdb.ReadTransaction, r fdb.Range, reverse bool) (*rangeIterator, error) {
+	iter := tr.GetRange(r, fdb.RangeOptions{Reverse: reverse}).Iterator()
 	ri := &rangeIterator{
 		iter:      iter,
 		exhausted: false,
@@ -146,7 +146,7 @@ func (s fdbStore) readEvents(
 
 		// Create streaming iterator for each range
 		for rangeIdx, r := range ranges {
-			ri, err := initRangeIterator(tr, r)
+			ri, err := initRangeIterator(tr, r, opts.Reverse)
 			if err != nil {
 				if ctx.Err() != nil {
 					return 0, ctx.Err()
@@ -159,8 +159,8 @@ func (s fdbStore) readEvents(
 		}
 	}
 
-	// Build min-heap from all iterators
-	h := &vsHeap{}
+	// Build heap from all iterators (min-heap for forward, max-heap for reverse)
+	h := &vsHeap{reverse: opts.Reverse}
 	heap.Init(h)
 	for i, ri := range allIterators {
 		heap.Push(h, heapItem{iter: ri, index: i})
@@ -383,27 +383,32 @@ type heapItem struct {
 	index int // For stable sorting when versionstamps are equal
 }
 
-// vsHeap implements heap.Interface for min-heap ordered by versionstamp
-type vsHeap []heapItem
-
-func (h vsHeap) Len() int { return len(h) }
-
-func (h vsHeap) Less(i, j int) bool {
-	// Stable sort: if versionstamps equal, use original index
-	cmp := h[i].iter.currentVS.Compare(h[j].iter.currentVS)
-	return cmp <= 0
+// vsHeap implements heap.Interface for min-heap (forward) or max-heap (reverse)
+type vsHeap struct {
+	items   []heapItem
+	reverse bool
 }
 
-func (h vsHeap) Swap(i, j int) { h[i], h[j] = h[j], h[i] }
+func (h vsHeap) Len() int { return len(h.items) }
+
+func (h vsHeap) Less(i, j int) bool {
+	cmp := h.items[i].iter.currentVS.Compare(h.items[j].iter.currentVS)
+	if h.reverse {
+		return cmp > 0 // max-heap: largest first
+	}
+	return cmp < 0 // min-heap: smallest first
+}
+
+func (h vsHeap) Swap(i, j int) { h.items[i], h.items[j] = h.items[j], h.items[i] }
 
 func (h *vsHeap) Push(x any) {
-	*h = append(*h, x.(heapItem))
+	h.items = append(h.items, x.(heapItem))
 }
 
 func (h *vsHeap) Pop() any {
-	old := *h
+	old := h.items
 	n := len(old)
 	item := old[n-1]
-	*h = old[0 : n-1]
+	h.items = old[0 : n-1]
 	return item
 }
