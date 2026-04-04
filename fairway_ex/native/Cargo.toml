@@ -1,0 +1,7 @@
+[workspace]
+members = [
+    "fairway_fdb_core",
+    "fairway_fdb",
+    "fairway_fdb_c",
+]
+resolver = "2"
