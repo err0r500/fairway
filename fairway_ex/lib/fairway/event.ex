@@ -87,7 +87,7 @@ defmodule Fairway.Event do
     with {:ok, module} <- Fairway.Registry.lookup(type_name),
          {:ok, envelope} <- Jason.decode(data_bytes, keys: :atoms),
          {:ok, occurred_at, _} <- DateTime.from_iso8601(to_string(envelope.occurred_at)),
-         data_struct <- struct(module, Map.drop(envelope, [:occurred_at])) do
+         data_struct <- struct(module, Map.get(envelope, :data, %{})) do
       {:ok, position, %__MODULE__{data: data_struct, occurred_at: occurred_at}}
     else
       {:error, :not_registered} ->
