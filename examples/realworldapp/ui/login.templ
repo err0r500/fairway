@@ -1,0 +1,19 @@
+package ui
+
+templ LoginPage() {
+	@Layout("Login") {
+		<h1>Login</h1>
+		<form hx-post="/ui/login" hx-target="#result">
+			<label>Email</label>
+			<input type="email" name="email" required/>
+			<label>Password</label>
+			<input type="password" name="password" required/>
+			<button type="submit">Login</button>
+		</form>
+		<div id="result"></div>
+	}
+}
+
+templ LoginError(msg string) {
+	<p class="error">{ msg }</p>
+}

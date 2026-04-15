@@ -1,0 +1,21 @@
+package ui
+
+templ ProfilePage(username, email string, bio, image *string) {
+	@Layout("Profile") {
+		<h1>Profile</h1>
+		if image != nil && *image != "" {
+			<img src={ *image } alt="avatar" style="width:80px;height:80px;border-radius:50%;"/>
+		}
+		<p><strong>Username:</strong> { username }</p>
+		<p><strong>Email:</strong> { email }</p>
+		if bio != nil && *bio != "" {
+			<p><strong>Bio:</strong> { *bio }</p>
+		}
+	}
+}
+
+templ ProfileError(msg string) {
+	@Layout("Profile") {
+		<p class="error">{ msg }</p>
+	}
+}

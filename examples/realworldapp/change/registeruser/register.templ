@@ -1,0 +1,21 @@
+package registeruser
+
+templ RegisterForm(resultDiv string) {
+	<form hx-post="/ui/register" hx-target={resultDiv}>
+		<label>Username</label>
+		<input type="text" name="username" required/>
+		<label>Email</label>
+		<input type="email" name="email" required/>
+		<label>Password</label>
+		<input type="password" name="password" required/>
+		<button type="submit">Register</button>
+	</form>
+}
+
+templ RegisterSuccess() {
+	<p class="success">Registered! <a href="/ui/login">Login now</a></p>
+}
+
+templ RegisterError(msg string) {
+	<p class="error">{ msg }</p>
+}

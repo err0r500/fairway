@@ -9,6 +9,7 @@ require (
 )
 
 require (
+	github.com/a-h/templ v0.3.1001 // indirect
 	github.com/avast/retry-go/v4 v4.7.0 // indirect
 	golang.org/x/net v0.47.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect

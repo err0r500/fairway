@@ -12,6 +12,7 @@ import (
 	"github.com/err0r500/fairway/examples/realworldapp/crypto"
 	"github.com/err0r500/fairway/examples/realworldapp/event"
 	"github.com/err0r500/fairway/utils"
+	"github.com/google/uuid"
 )
 
 const emailReleaseDuration = 3 * 24 * time.Hour
@@ -21,10 +22,45 @@ func init() {
 }
 
 func Register(registry *fairway.HttpChangeRegistry) {
-	registry.RegisterCommand("POST /users", httpHandler)
+	registry.RegisterCommand("POST /users", api)
+	registry.RegisterCommand("POST /ui/register", html)
 }
 
-var conflictErr = errors.New("a user field conflicts")
+var ErrConflict = errors.New("a user field conflicts")
+var conflictErr = ErrConflict
+
+func NewCommand(id, name, email, hashedPassword string, now time.Time) fairway.Command {
+	return command{id: id, name: name, email: email, hashedPassword: hashedPassword, now: now}
+}
+
+func html(runner fairway.CommandRunner) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		username := r.FormValue("username")
+		email := r.FormValue("email")
+		password := r.FormValue("password")
+
+		if username == "" || email == "" || password == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			RegisterError("All fields are required").Render(r.Context(), w)
+			return
+		}
+
+		cmd := NewCommand(uuid.New().String(), username, email, crypto.Hash(password), time.Now())
+
+		if err := runner.RunPure(r.Context(), cmd); err != nil {
+			if errors.Is(err, ErrConflict) {
+				w.WriteHeader(http.StatusConflict)
+				RegisterError("Username or email already taken").Render(r.Context(), w)
+				return
+			}
+			w.WriteHeader(http.StatusInternalServerError)
+			RegisterError("Internal error").Render(r.Context(), w)
+			return
+		}
+
+		RegisterSuccess().Render(r.Context(), w)
+	}
+}
 
 type reqBody struct {
 	Id       string `json:"id" validate:"required"`
@@ -33,8 +69,8 @@ type reqBody struct {
 	Password string `json:"password" validate:"required"`
 }
 
-// httpHandler creates an HTTP handler for this command
-func httpHandler(runner fairway.CommandRunner) http.HandlerFunc {
+// api creates an HTTP handler for this command
+func api(runner fairway.CommandRunner) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req reqBody
 		if err := utils.JsonParse(r, &req); err != nil {

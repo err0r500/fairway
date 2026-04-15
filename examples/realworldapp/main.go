@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"runtime/debug"
 	"slices"
 
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
@@ -15,6 +16,7 @@ import (
 	"github.com/err0r500/fairway/dcb"
 	"github.com/err0r500/fairway/examples/realworldapp/automate"
 	"github.com/err0r500/fairway/examples/realworldapp/change"
+	"github.com/err0r500/fairway/examples/realworldapp/ui"
 	"github.com/err0r500/fairway/examples/realworldapp/view"
 )
 
@@ -41,8 +43,11 @@ func main() {
 
 	// Setup router
 	mux := http.NewServeMux()
-	change.ChangeRegistry.RegisterRoutes(mux, fairway.NewCommandRunner(coreStore))
-	view.ViewRegistry.RegisterRoutes(mux, fairway.NewReader(coreStore))
+	runner := fairway.NewCommandRunner(coreStore)
+	reader := fairway.NewReader(coreStore)
+	change.ChangeRegistry.RegisterRoutes(mux, runner)
+	view.ViewRegistry.RegisterRoutes(mux, reader)
+	ui.NewHandlers(runner, reader).RegisterRoutes(mux)
 
 	// Start server
 	for _, route := range slices.Concat(
@@ -53,5 +58,24 @@ func main() {
 	}
 
 	logger.Info("Server starting on :8080")
-	log.Fatal(http.ListenAndServe(":8080", mux))
+	log.Fatal(http.ListenAndServe(":8080", panicLogMiddleware(mux)))
+}
+
+func panicLogMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if rec := recover(); rec != nil {
+				slog.Error("panic recovered",
+					"panic", rec,
+					"method", r.Method,
+					"path", r.URL.Path,
+					"query", r.URL.RawQuery,
+					"remote_addr", r.RemoteAddr,
+					"stack", string(debug.Stack()),
+				)
+				w.WriteHeader(http.StatusInternalServerError)
+			}
+		}()
+		next.ServeHTTP(w, r)
+	})
 }

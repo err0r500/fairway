@@ -1,0 +1,11 @@
+package ui
+
+import "github.com/err0r500/fairway/examples/realworldapp/change/registeruser"
+
+templ RegisterPage() {
+	@Layout("Register") {
+		<h1>Register</h1>
+        @registeruser.RegisterForm("#result")
+		<div id="result"></div>
+	}
+}

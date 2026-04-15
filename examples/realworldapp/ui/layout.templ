@@ -1,0 +1,38 @@
+package ui
+
+templ Layout(title string) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="UTF-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+			<title>{ title } — RealWorld</title>
+			<script src="https://unpkg.com/htmx.org@2.0.4" integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+" crossorigin="anonymous"></script>
+			<script>
+				htmx.config.responseHandling = [
+					{code:"204", swap: false},
+					{code:"[23]..", swap: true},
+					{code:"[45]..", swap: true},
+					{code:"...", swap: false}
+				];
+			</script>
+			<style>
+				body { font-family: sans-serif; max-width: 480px; margin: 2rem auto; padding: 0 1rem; }
+				input { display: block; width: 100%; margin: .5rem 0; padding: .5rem; box-sizing: border-box; }
+				button { padding: .5rem 1.5rem; cursor: pointer; }
+				.error { color: red; }
+				.success { color: green; }
+				nav a { margin-right: 1rem; }
+			</style>
+		</head>
+		<body>
+			<nav>
+				<a href="/ui/register">Register</a>
+				<a href="/ui/login">Login</a>
+				<a href="/ui/profile">Profile</a>
+			</nav>
+			<hr/>
+			{ children... }
+		</body>
+	</html>
+}
