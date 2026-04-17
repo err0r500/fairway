@@ -3,7 +3,7 @@ module github.com/err0r500/fairway/examples/realworldapp
 go 1.24.1
 
 require (
-	github.com/apple/foundationdb/bindings/go v0.0.0-20250911184653-27f7192f47c3
+	github.com/apple/foundationdb/bindings/go v0.0.0-20260219071659-c9bb8f15361f
 	github.com/err0r500/fairway v0.0.0
 	github.com/golang-jwt/jwt/v5 v5.3.0
 )

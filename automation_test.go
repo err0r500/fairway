@@ -18,7 +18,7 @@ import (
 )
 
 func init() {
-	fdb.MustAPIVersion(740)
+	fdb.MustAPIVersion(730)
 }
 
 // TestEvent is a sample event for testing

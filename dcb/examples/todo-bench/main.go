@@ -32,7 +32,7 @@ func main() {
 	flag.Parse()
 
 	// Setup FDB
-	fdb.MustAPIVersion(740)
+	fdb.MustAPIVersion(730)
 
 	var db fdb.Database
 	if *fdbCluster != "" {

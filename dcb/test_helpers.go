@@ -15,7 +15,7 @@ import (
 func SetupTestStore(t *testing.T) *fdbStore {
 	t.Helper()
 
-	fdb.MustAPIVersion(740)
+	fdb.MustAPIVersion(730)
 	db := fdb.MustOpenDefault()
 
 	// Use unique namespace per test

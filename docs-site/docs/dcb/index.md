@@ -42,7 +42,7 @@ import (
     "github.com/err0r500/fairway/dcb"
 )
 
-fdb.MustAPIVersion(740)
+fdb.MustAPIVersion(730)
 db := fdb.MustOpenDefault()
 store := dcb.NewDcbStore(db, "myapp")
 ```

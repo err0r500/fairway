@@ -8,7 +8,7 @@ require (
 )
 
 require (
-	github.com/apple/foundationdb/bindings/go v0.0.0-20250911184653-27f7192f47c3 // indirect
+	github.com/apple/foundationdb/bindings/go v0.0.0-20260219071659-c9bb8f15361f // indirect
 	github.com/avast/retry-go/v4 v4.7.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
 )

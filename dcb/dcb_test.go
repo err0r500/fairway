@@ -291,7 +291,7 @@ func TestVersionstampString(tt *testing.T) {
 // func setupTestStore(t *testing.T) *fdbdcb.EventStore {
 // 	t.Helper()
 
-// 	fdb.MustAPIVersion(740)
+// 	fdb.MustAPIVersion(730)
 // 	db := fdb.MustOpenDefault()
 
 // 	// Use unique namespace per test

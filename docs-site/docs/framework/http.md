@@ -155,7 +155,7 @@ import (
 )
 
 func main() {
-    fdb.MustAPIVersion(740)
+    fdb.MustAPIVersion(730)
     db := fdb.MustOpenDefault()
     store := dcb.NewDcbStore(db, "myapp")
     mux := http.NewServeMux()

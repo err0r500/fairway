@@ -5,7 +5,7 @@ go 1.24.1
 replace github.com/err0r500/fairway/dcb => ../..
 
 require (
-	github.com/apple/foundationdb/bindings/go v0.0.0-20250911184653-27f7192f47c3
+	github.com/apple/foundationdb/bindings/go v0.0.0-20260219071659-c9bb8f15361f
 	github.com/err0r500/fairway/dcb v0.0.0-00010101000000-000000000000
 	github.com/prometheus/client_golang v1.23.2
 )

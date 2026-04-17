@@ -18,7 +18,7 @@ import (
 
 func main() {
 	// Setup FDB
-	fdb.MustAPIVersion(740)
+	fdb.MustAPIVersion(730)
 	db := fdb.MustOpenDefault()
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelDebug,

@@ -83,7 +83,7 @@ func FreshSetup(t *testing.T, registerFn any) (dcb.DcbStore, *httptest.Server, *
 func SetupTestStore(t *testing.T) dcb.DcbStore {
 	t.Helper()
 
-	fdb.MustAPIVersion(740)
+	fdb.MustAPIVersion(730)
 	db := fdb.MustOpenDefault()
 
 	// Use unique namespace per test
