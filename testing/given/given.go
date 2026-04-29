@@ -10,7 +10,7 @@ import (
 
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"github.com/err0r500/fairway"
-	"github.com/err0r500/fairway/dcb"
+	"github.com/err0r500/fdb-eventstore-dcb"
 	"github.com/google/uuid"
 	"resty.dev/v3"
 )

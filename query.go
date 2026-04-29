@@ -3,7 +3,7 @@ package fairway
 import (
 	"reflect"
 
-	"github.com/err0r500/fairway/dcb"
+	"github.com/err0r500/fdb-eventstore-dcb"
 )
 
 // Query represents the complete event filter for an event Handler

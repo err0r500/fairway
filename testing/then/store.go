@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/err0r500/fairway"
-	"github.com/err0r500/fairway/dcb"
+	"github.com/err0r500/fdb-eventstore-dcb"
 	"github.com/stretchr/testify/assert"
 )
 

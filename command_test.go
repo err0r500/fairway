@@ -9,7 +9,7 @@ import (
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"github.com/avast/retry-go/v4"
 	"github.com/err0r500/fairway"
-	"github.com/err0r500/fairway/dcb"
+	"github.com/err0r500/fdb-eventstore-dcb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"pgregory.net/rapid"
