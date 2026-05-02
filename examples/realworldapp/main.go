@@ -31,7 +31,7 @@ func main() {
 	coreStore := dcb.NewDcbStore(db, "realworldapp", dcb.StoreOptions{}.WithLogger(logger))
 
 	// Start automations
-	stopAutomations, err := automate.Registry.StartAll(context.Background(), coreStore, automate.AllDeps{
+	stopAutomations, err := automate.Registry.StartAll(context.Background(), db, "realworldapp", coreStore, automate.AllDeps{
 		EmailSender: &LoggingEmailSender{},
 	})
 	if err != nil {

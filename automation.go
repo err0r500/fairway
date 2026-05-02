@@ -48,7 +48,7 @@ type Startable interface {
 }
 
 // AutomationFactory creates an automation
-type AutomationFactory[Deps any] func(store dcb.DcbStore, deps Deps) (Startable, error)
+type AutomationFactory[Deps any] func(db fdb.Database, namespace string, store dcb.DcbStore, deps Deps) (Startable, error)
 
 // AutomationRegistry holds registered automation factories
 type AutomationRegistry[Deps any] struct {
@@ -60,11 +60,11 @@ func (r *AutomationRegistry[Deps]) RegisterAutomation(f AutomationFactory[Deps])
 }
 
 // StartAll creates and starts all automations, returns stop func
-func (r *AutomationRegistry[Deps]) StartAll(ctx context.Context, store dcb.DcbStore, deps Deps) (func(), error) {
+func (r *AutomationRegistry[Deps]) StartAll(ctx context.Context, db fdb.Database, namespace string, store dcb.DcbStore, deps Deps) (func(), error) {
 	var automations []Startable
 	seen := make(map[string]bool)
 	for _, f := range r.factories {
-		a, err := f(store, deps)
+		a, err := f(db, namespace, store, deps)
 		if err != nil {
 			return nil, err
 		}
@@ -183,6 +183,8 @@ func WithRetryBaseWait[Deps any](d time.Duration) AutomationOption[Deps] {
 
 // NewAutomation creates a new automation instance
 func NewAutomation[Deps any](
+	db fdb.Database,
+	namespace string,
 	store dcb.DcbStore,
 	deps Deps,
 	queueId string,
@@ -197,16 +199,14 @@ func NewAutomation[Deps any](
 		return nil, errors.New("store is required")
 	}
 
-	db := store.Database()
-	dcbNamespace := store.Namespace()
 	runner := NewCommandWithEffectRunner(store, deps)
 
 	// Resolve event type name
 	eventType := resolveEventTypeName(eventTypeExample)
 
 	// Build subspaces
-	dcbRoot := subspace.Sub(dcbNamespace)
-	automationRoot := subspace.Sub(dcbNamespace + "/" + queueId)
+	dcbRoot := subspace.Sub(namespace)
+	automationRoot := subspace.Sub(namespace + "/" + queueId)
 
 	// Generate worker ID
 	var workerID [16]byte

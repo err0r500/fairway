@@ -1,27 +1,40 @@
 package utils_test
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"sync"
 	"sync/atomic"
 	"testing"
 
-	"github.com/err0r500/fairway/testing/given"
+	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"github.com/err0r500/fairway/utils"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
 
+func init() {
+	fdb.MustAPIVersion(730)
+}
+
 func TestIdempotencyMiddleware_ConcurrentSameKey(t *testing.T) {
 	// given
-	store := given.SetupTestStore(t)
+	db := fdb.MustOpenDefault()
+	namespace := fmt.Sprintf("test-%s", uuid.New())
+	t.Cleanup(func() {
+		_, _ = db.Transact(func(tr fdb.Transaction) (any, error) {
+			tr.ClearRange(fdb.KeyRange{Begin: fdb.Key(namespace), End: fdb.Key(namespace + "\xff")})
+			return nil, nil
+		})
+	})
+
 	var handlerCalls atomic.Int32
 
 	server := httptest.NewServer(
 		utils.IdempotencyMiddleware(
-			store.Database(),
-			store.Namespace(),
+			db,
+			namespace,
 			http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				handlerCalls.Add(1)
 				w.WriteHeader(http.StatusCreated)
