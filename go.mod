@@ -5,9 +5,9 @@ go 1.24.1
 require (
 	github.com/apple/foundationdb/bindings/go v0.0.0-20260219071659-c9bb8f15361f
 	github.com/avast/retry-go/v4 v4.7.0
+	github.com/err0r500/fdb-eventstore-dcb v0.0.0-20260429155319-6a1158a2a93e
 	github.com/go-playground/validator/v10 v10.30.1
 	github.com/google/uuid v1.6.0
-	golang.org/x/sync v0.19.0
 	resty.dev/v3 v3.0.0-beta.6
 )
 
@@ -18,6 +18,7 @@ require (
 	github.com/leodido/go-urn v1.4.0 // indirect
 	golang.org/x/crypto v0.46.0 // indirect
 	golang.org/x/net v0.47.0 // indirect
+	golang.org/x/sync v0.19.0 // indirect
 	golang.org/x/sys v0.39.0 // indirect
 	golang.org/x/text v0.32.0 // indirect
 )

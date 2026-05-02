@@ -4,8 +4,9 @@ import (
 	"context"
 	"log"
 
+	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"github.com/err0r500/fairway"
-	"github.com/err0r500/fairway/dcb"
+	"github.com/err0r500/fdb-eventstore-dcb"
 	"github.com/err0r500/fairway/examples/realworldapp/automate"
 	"github.com/err0r500/fairway/examples/realworldapp/event"
 )
@@ -26,13 +27,15 @@ type command struct {
 // Register adds this automation to the registry (public for tests)
 func Register(registry *fairway.AutomationRegistry[automate.AllDeps]) {
 	registry.RegisterAutomation(
-		func(store dcb.DcbStore, deps automate.AllDeps) (fairway.Startable, error) {
+		func(db fdb.Database, namespace string, store dcb.DcbStore, deps automate.AllDeps) (fairway.Startable, error) {
 			return fairway.NewAutomation(
-				store,                               // DCB store
-				Deps{EmailSender: deps.EmailSender}, // provide the dependencies implementations to the command
-				"welcome-email",                     // unique queue identifier
-				event.UserRegistered{},              // the event-type that triggers the automation
-				eventToCommand,                      // mapping to construct the command from the trigger event
+				db,
+				namespace,
+				store,
+				Deps{EmailSender: deps.EmailSender},
+				"welcome-email",
+				event.UserRegistered{},
+				eventToCommand,
 			)
 		},
 	)

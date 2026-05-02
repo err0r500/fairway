@@ -12,7 +12,7 @@ import (
 
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"github.com/err0r500/fairway"
-	"github.com/err0r500/fairway/dcb"
+	"github.com/err0r500/fdb-eventstore-dcb"
 	"github.com/err0r500/fairway/examples/realworldapp/automate"
 	"github.com/err0r500/fairway/examples/realworldapp/change"
 	"github.com/err0r500/fairway/examples/realworldapp/view"
@@ -31,7 +31,7 @@ func main() {
 	coreStore := dcb.NewDcbStore(db, "realworldapp", dcb.StoreOptions{}.WithLogger(logger))
 
 	// Start automations
-	stopAutomations, err := automate.Registry.StartAll(context.Background(), coreStore, automate.AllDeps{
+	stopAutomations, err := automate.Registry.StartAll(context.Background(), db, "realworldapp", coreStore, automate.AllDeps{
 		EmailSender: &LoggingEmailSender{},
 	})
 	if err != nil {

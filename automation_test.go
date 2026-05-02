@@ -11,7 +11,7 @@ import (
 
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"github.com/err0r500/fairway"
-	"github.com/err0r500/fairway/dcb"
+	"github.com/err0r500/fdb-eventstore-dcb"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -75,6 +75,8 @@ func setupTestAutomation(t *testing.T, dcbNs, queueId string, deps TestDeps, opt
 	}
 
 	automation, err := fairway.NewAutomation(
+		db,
+		dcbNs,
 		store,
 		deps,
 		queueId,
@@ -181,7 +183,7 @@ func TestAutomation_CursorPersistence(t *testing.T) {
 
 	// Start automation, process first event, then stop
 	automation1, err := fairway.NewAutomation(
-		store, deps, queueId, TestAutomationEvent{}, handler,
+		db, dcbNs, store, deps, queueId, TestAutomationEvent{}, handler,
 		fairway.WithPollInterval[TestDeps](10*time.Millisecond),
 	)
 	require.NoError(t, err)
@@ -207,7 +209,7 @@ func TestAutomation_CursorPersistence(t *testing.T) {
 
 	// Start new automation instance
 	automation2, err := fairway.NewAutomation(
-		store, deps, queueId, TestAutomationEvent{}, handler,
+		db, dcbNs, store, deps, queueId, TestAutomationEvent{}, handler,
 		fairway.WithPollInterval[TestDeps](10*time.Millisecond),
 	)
 	require.NoError(t, err)
@@ -383,7 +385,7 @@ func TestAutomation_LeaseExpiry(t *testing.T) {
 
 	// Start first automation with very short lease
 	automation1, err := fairway.NewAutomation(
-		store, deps, queueId, TestAutomationEvent{}, handler,
+		db, dcbNs, store, deps, queueId, TestAutomationEvent{}, handler,
 		fairway.WithPollInterval[TestDeps](10*time.Millisecond),
 		fairway.WithLeaseTTL[TestDeps](50*time.Millisecond), // Very short lease
 	)

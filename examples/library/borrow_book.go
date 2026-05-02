@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	"github.com/err0r500/fairway"
-	"github.com/err0r500/fairway/dcb"
+	"github.com/err0r500/fdb-eventstore-dcb"
 )
 
 // EVENTS
